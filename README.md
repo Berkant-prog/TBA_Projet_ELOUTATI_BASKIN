@@ -1,19 +1,5 @@
 # TBA_Projet_ELOUTATI_BASKIN
 Projet de jeu d'aventure textuel python 
-
-
-Parfait 🏴‍☠️
-
-On garde donc 4 grandes îles principales avant l’affrontement final, chacune représentant une étape de progression dans la conquête des mers — à la fois narrative, stratégique et émotionnelle.
-
-Voici une version grandement détaillée du scénario complet, comme si on décrivait l’expérience vécue par le joueur à la première personne, avec une profondeur narrative, des PNJ, des mécaniques, des récompenses et des ambiances riches.
-
-
-
-⸻
-
-
-
 🗺️ La Révolte des Mers Maudites
 
 
