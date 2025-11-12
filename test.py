@@ -1,26 +1,16 @@
 # test.py
-# Tests automatiques du jeu.
+# Tests très simples (manuels) pour vérifier que les modules se chargent.
 
-class Test:
-    """Classe regroupant les tests unitaires."""
+from game import Game
 
-    def test_combat(self):
-        """Vérifie le bon déroulement d’un combat."""
-        pass
+def test_boot():
+    g = Game()
+    g.start_game()
+    assert g.player is not None
+    assert g.rooms
+    print("Boot OK.")
 
-    def test_items(self):
-        """Vérifie l’application correcte des effets d’objet."""
-        pass
-
-    def test_navigation(self):
-        """Vérifie que les déplacements entre planètes fonctionnent."""
-        pass
-
-    def test_inventory(self):
-        """Vérifie l’ajout et la suppression d’objets."""
-        pass
-
-    def test_endings(self):
-        """Simule les fins du jeu selon les variables."""
-        pass
+if __name__ == "__main__":
+    test_boot()
+    print("Tests de base passés.")
 
