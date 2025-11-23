@@ -1,135 +1,203 @@
 # actions.py
-# Contient toutes les fonctions d'action (combat, soins, interactions, etc.)
+"""
+Fonctions d'actions appelées par les commandes.
 
-def attaquer(player, room, target_name):
-    """Gère un combat entre le joueur et un ennemi dans la salle."""
-    # Vérifie la présence de l'ennemi
+Chaque fonction prend en premier paramètre une instance de Game.
+
+Fonctions
+---------
+go(game, direction) -> str
+back(game) -> str
+look(game) -> str
+take(game, item_name) -> str
+drop(game, item_name) -> str
+check(game) -> str
+talk(game, name) -> str
+attack(game, enemy_name) -> str
+show_help(game) -> str
+quit_game(game) -> str
+"""
+
+from item import Item
+
+
+def go(game, direction):
+    """Déplacement dans une direction donnée (N, S, E, W, U, D)."""
+    if not direction:
+        return "Vous devez préciser une direction (N, S, E, W, U, D)."
+
+    direction = direction.upper()
+    current = game.player.current_room
+    next_room = current.get_exit(direction)
+
+    if next_room is None:
+        return "Vous ne pouvez pas aller par là."
+
+    game.player.move_to(next_room)
+    desc = next_room.get_long_description()
+    hist = game.player.get_history()
+    if hist:
+        desc += "\n\n" + hist
+    return desc
+
+
+def back(game):
+    """Revient au lieu précédemment visité."""
+    room = game.player.go_back()
+    if room is None:
+        return "Vous ne pouvez pas revenir en arrière."
+    desc = room.get_long_description()
+    hist = game.player.get_history()
+    if hist:
+        desc += "\n\n" + hist
+    return desc
+
+
+def look(game):
+    """Observe l'environnement (description + objets + PNJ + ennemis)."""
+    room = game.player.current_room
+    desc = room.get_long_description()
+    hist = game.player.get_history()
+    if hist:
+        desc += "\n\n" + hist
+    return desc
+
+
+def take(game, item_name):
+    """Prend un objet présent dans la pièce."""
+    if not item_name:
+        return "Vous devez préciser le nom de l'objet à prendre."
+
+    room = game.player.current_room
+    # Cherche l'objet dans la pièce
+    for i, item in enumerate(room.inventory):
+        if item.name.lower() == item_name.lower():
+            # Vérifie le poids
+            if not game.player.can_take(item):
+                return (
+                    f"Vous ne pouvez pas prendre '{item.name}': "
+                    "cela dépasserait votre charge maximale."
+                )
+            room.inventory.pop(i)
+            game.player.inventory.append(item)
+            # Quête : cristal de propulsion ?
+            if item.name.lower() == "cristal de propulsion":
+                game.player.has_crystal = True
+            return f"Vous avez pris l'objet '{item.name}'."
+    return f"L'objet '{item_name}' n'est pas présent ici."
+
+
+def drop(game, item_name):
+    """Dépose un objet depuis l'inventaire dans la pièce."""
+    if not item_name:
+        return "Vous devez préciser le nom de l'objet à déposer."
+
+    inv = game.player.inventory
+    for i, item in enumerate(inv):
+        if item.name.lower() == item_name.lower():
+            inv.pop(i)
+            game.player.current_room.inventory.append(item)
+            # Si on dépose le cristal, on garde has_crystal à True ou False ?
+            # Ici on considère que la quête est validée dès qu'il a été obtenu.
+            return f"Vous avez déposé l'objet '{item.name}'."
+    return f"Vous ne possédez pas l'objet '{item_name}'."
+
+
+def check(game):
+    """Affiche le contenu de l'inventaire du joueur."""
+    return game.player.get_inventory()
+
+
+def talk(game, name):
+    """Parle à un PNJ dans la pièce courante."""
+    if not name:
+        return "Vous devez préciser à qui parler (talk <nom>)."
+
+    room = game.player.current_room
+    for char in room.characters:
+        if char.name.lower() == name.lower():
+            return char.get_msg()
+    return f"Il n'y a ici aucun personnage nommé '{name}'."
+
+
+def attack(game, enemy_name):
+    """Lance un tour de combat contre un ennemi dans la pièce."""
+    if not enemy_name:
+        return "Vous devez préciser quel ennemi attaquer (attack <nom>)."
+
+    room = game.player.current_room
     enemy = None
     for e in room.enemies:
-        if e.name.lower() == target_name.lower():
+        if e.name.lower() == enemy_name.lower():
             enemy = e
             break
-    if not enemy:
-        return "Aucun ennemi de ce nom ici."
 
-    # Combat : joueur attaque
-    dmg_to_enemy = max(0, player.atk - enemy.defense)
-    enemy.hp = max(0, enemy.hp - dmg_to_enemy)
-    player.log_event(f"{player.name} attaque {enemy.name} et inflige {dmg_to_enemy} dégâts.")
-    msg = f"{player.name} attaque {enemy.name} et inflige {dmg_to_enemy} dégâts.\n"
+    if enemy is None or not enemy.is_alive():
+        return f"Aucun ennemi vivant nommé '{enemy_name}' ici."
 
-    # Vérifie si l'ennemi est mort
+    lines = []
+
+    # --- Attaque du joueur ---
+    enemy.hp -= game.player.atk
+    if enemy.hp < 0:
+        enemy.hp = 0
+    lines.append(
+        f"Vous attaquez {enemy.name} et lui infligez {game.player.atk} points de dégâts. "
+        f"(PV restants : {enemy.hp})"
+    )
+
+    # --- Ennemi mort ? ---
     if not enemy.is_alive():
-        msg += f"{enemy.name} s'effondre !\n"
-        loot = enemy.drop_loot()
-        room.enemies.remove(enemy)
-        if loot:
-            msg += f"Vous trouvez un objet : {loot}.\n"
-            player.log_event(f"Reçu butin : {loot}")
-            # Ajoute le butin à la salle
-            if hasattr(room, "items"):
-                room.items.append(loot)
-        else:
-            msg += "Aucun butin trouvé.\n"
-        return msg
+        lines.append(f"{enemy.name} s'effondre. Il est vaincu.")
+        # Loot éventuel
+        if enemy.loot is not None:
+            room.inventory.append(enemy.loot)
+            if enemy.loot.name.lower() == "cristal de propulsion":
+                lines.append(
+                    "Dans un ultime sursaut, la créature laisse tomber un Cristal de propulsion !"
+                )
+            else:
+                lines.append(
+                    f"{enemy.name} laisse tomber '{enemy.loot.name}'."
+                )
+        return "\n".join(lines)
 
-    # Si l'ennemi est encore vivant : riposte
-    dmg_to_player = max(0, enemy.atk - player.defense)
-    player.hp = max(0, player.hp - dmg_to_player)
-    player.log_event(f"{enemy.name} riposte et inflige {dmg_to_player} dégâts à {player.name}.")
-    msg += f"{enemy.name} riposte et inflige {dmg_to_player} dégâts à {player.name}."
-    return msg
+    # --- Riposte de l'ennemi ---
+    dmg = max(1, enemy.atk - game.player.defense)
+    game.player.hp -= dmg
+    if game.player.hp < 0:
+        game.player.hp = 0
+    lines.append(
+        f"{enemy.name} riposte et vous inflige {dmg} points de dégâts. "
+        f"(Vos PV : {game.player.hp})"
+    )
 
+    # --- Joueur mort ? ---
+    if game.player.hp <= 0:
+        lines.append("\nVous succombez à vos blessures. Le Vigilant ne repartira jamais...")
+        game.running = False
 
-
-def parler(player, room, name):
-    """Dialogue avec un PNJ s’il est présent dans la pièce."""
-    for ch in room.pnj:
-        if ch.name.lower() == name.lower():
-            text = ch.talk(player)  # ✅ on passe le joueur
-            player.log_event(f"Parlé avec {ch.name}")
-            return text
-    return "Personne de ce nom ici."
-
-
-def utiliser(player, item_name):
-    """Utilise un objet de l’inventaire."""
-    if not player.inventory:
-        return "Votre inventaire est vide."
-    return player.use_item(item_name)
+    return "\n".join(lines)
 
 
-def soigner(player):
-    """Soigne le joueur avec une trousse médicale si disponible."""
-    heal_item = None
-    for it in player.inventory:
-        if it.effect_type == "hp":
-            heal_item = it
-            break
-    if not heal_item:
-        return "Aucune trousse médicale dans l’inventaire."
-    player.hp = min(player.max_hp, player.hp + heal_item.value)
-    player.inventory.remove(heal_item)
-    return f"Vous utilisez {heal_item.name} et regagnez {heal_item.value} PV."
+def show_help(game):
+    """Affiche la liste des commandes disponibles."""
+    return (
+        "Commandes disponibles :\n"
+        "- go <dir>   : se déplacer (N, S, E, W, U, D)\n"
+        "- back       : revenir en arrière\n"
+        "- look       : observer les lieux et les sorties\n"
+        "- take <obj> : prendre un objet\n"
+        "- drop <obj> : déposer un objet\n"
+        "- check      : afficher l'inventaire\n"
+        "- talk <pnj> : parler à un personnage\n"
+        "- attack <e> : attaquer un ennemi\n"
+        "- help       : afficher cette aide\n"
+        "- quit       : quitter le jeu"
+    )
 
 
-def prendre(player, room, item_name):
-    """Permet au joueur de ramasser un objet."""
-    item = room.remove_item(item_name)
-    if not item:
-        return f"Aucun objet nommé {item_name} ici."
-    player.add_item(item)
-    return f"Vous prenez {item.name}."
-
-
-def inventaire(player):
-    """Affiche l’inventaire du joueur."""
-    if not player.inventory:
-        return "Inventaire vide."
-    text = "Inventaire :\n"
-    for it in player.inventory:
-        text += f"- {it.name} ({it.effect_type}+{it.value})\n"
-    return text.strip()
-
-
-def statut(player):
-    """Affiche les statistiques du joueur."""
-    return player.get_status()
-
-
-def fuir_combat(player, room):
-    """Permet au joueur de fuir le combat en cours, si des ennemis sont présents."""
-    if not room.enemies:
-        return "Rien dont fuir."
-
-    # On suppose que le joueur fuit tous les ennemis de la salle
-    ennemis = ", ".join(e.name for e in room.enemies if e.is_alive())
-    if not ennemis:
-        return "Aucun ennemi vivant à fuir."
-
-    # Effets sur le joueur
-    player.energie = max(0, player.energie - 10)
-    player.moral = max(0, player.moral - 5)
-    player.log_event(f"Fuite du combat face à {ennemis}")
-
-    # Narration
-    return f"Vous battez en retraite, échappant à {ennemis}. Votre énergie et votre moral baissent légèrement."
-
-
-
-
-def historique(player):
-    return player.get_history()
-
-def voyager(player, rooms, direction):
-    current = player.current_room
-    if not current or direction not in current.connected_rooms:
-        return "Impossible d'aller par là."
-    dest_name = current.connected_rooms[direction]
-    new_room = rooms.get(dest_name)
-    if not new_room:
-        return "Destination inconnue."
-    player.current_room = new_room
-    player.log_event(f"Voyage vers {new_room.name}.")
-    return new_room.describe()
-
+def quit_game(game):
+    """Met fin au jeu."""
+    game.running = False
+    return "Vous quittez le jeu. Le Vigilant reste en orbite silencieuse..."
