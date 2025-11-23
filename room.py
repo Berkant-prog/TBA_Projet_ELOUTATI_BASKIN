@@ -1,59 +1,99 @@
 # room.py
-# Représente une planète / une zone.
+"""
+Classe Room : représente un lieu du jeu.
+
+Attributs
+---------
+name : str
+    Nom du lieu.
+description : str
+    Description textuelle du lieu.
+exits : dict[str, Room]
+    Dictionnaire des sorties, indexé par une direction (N, S, E, W, U, D).
+inventory : list[Item]
+    Liste des objets présents dans la pièce.
+characters : list[Character]
+    Liste des personnages non-joueurs présents.
+enemies : list[Enemy]
+    Liste des ennemis présents.
+
+Méthodes
+--------
+get_exit(direction: str) -> Room | None
+    Retourne la salle dans la direction donnée, ou None.
+get_exit_string() -> str
+    Retourne une description textuelle des sorties.
+get_inventory() -> str
+    Retourne une description textuelle des objets présents.
+get_long_description() -> str
+    Description complète du lieu (texte, sorties, PNJ, ennemis, commandes).
+"""
 
 class Room:
-    """Lieu/planète avec connexions, PNJ, ennemis, objets."""
+    """Lieu du jeu (une pièce, une zone, etc.)."""
 
-    def __init__(self, name, description, connected_rooms=None, items=None, pnj=None, enemies=None):
+    def __init__(self, name, description):
         self.name = name
         self.description = description
-        self.connected_rooms = connected_rooms or {}  # {"est": "Velyra IX"}
-        self.items = items or []                      # liste d'instances Item
-        self.pnj = pnj or []                          # instances Character
-        self.enemies = enemies or []                  # instances Enemy
-        self.visited = False
+        self.exits = {}          # dict[direction -> Room]
+        self.inventory = []      # list[Item]
+        self.characters = []     # list[Character]
+        self.enemies = []        # list[Enemy]
 
-    def describe(self):
-        """Retour d’une description formatée pour l’affichage."""
-        self.visited = True
-        lines = [f"\n== {self.name} ==", self.description]
-        if self.pnj:
-            lines.append("Personnages présents : " + ", ".join(p.name for p in self.pnj))
-        alive_names = [e.name for e in self.enemies if e.is_alive()]
-        if alive_names:
-            lines.append("Ennemis détectés : " + ", ".join(alive_names))
-        if self.items:
-            lines.append("Objets visibles : " + ", ".join(i.name for i in self.items))
-        if self.connected_rooms:
-            dirs = ", ".join(f"{d}→{n}" for d, n in self.connected_rooms.items())
-            lines.append(f"Sorties : {dirs}")
+    # --- Déplacements ---
+
+    def get_exit(self, direction):
+        """Retourne la salle associée à la direction donnée, ou None."""
+        direction = direction.upper()
+        return self.exits.get(direction, None)
+
+    def get_exit_string(self):
+        """Retourne une chaîne décrivant les sorties disponibles."""
+        if not self.exits:
+            return "Sorties: aucune"
+        exit_string = "Sorties: "
+        for direction, room in self.exits.items():
+            if room is not None:
+                exit_string += direction + ", "
+        exit_string = exit_string.strip(", ")
+        return exit_string
+
+    # --- Inventaire de la pièce ---
+
+    def get_inventory(self):
+        """Retourne une chaîne décrivant les objets présents dans la pièce."""
+        if not self.inventory:
+            return "Il n'y a rien ici."
+        lines = ["La pièce contient :"]
+        for item in self.inventory:
+            lines.append(f"- {item}")
         return "\n".join(lines)
 
-    def get_connections(self):
-        return dict(self.connected_rooms)
+    # --- Description complète ---
 
-    def add_item(self, item):
-        self.items.append(item)
+    def get_long_description(self):
+        """Retourne une description longue : lieu, sorties, PNJ, ennemis, commandes."""
+        lines = [f"\nVous êtes {self.description}", self.get_exit_string()]
 
-    def remove_item(self, item_name):
-        """Retire un objet par son nom et le renvoie (ou None)."""
-        for i, it in enumerate(self.items):
-            if it.name.lower() == item_name.lower():
-                return self.items.pop(i)
-        return None
+        # PNJ
+        if self.characters:
+            pnj_names = ", ".join(c.name for c in self.characters)
+            lines.append(f"Personnages présents : {pnj_names}")
 
-    def has_enemy(self):
-        """True s'il reste au moins un ennemi vivant."""
-        return any(e.is_alive() for e in self.enemies)
+        # Ennemis
+        if self.enemies:
+            enemy_names = ", ".join(e.name for e in self.enemies if e.is_alive())
+            if enemy_names:
+                lines.append(f"Ennemis détectés : {enemy_names}")
 
-    def get_enemy(self, name=None):
-        """Retourne l’ennemi ciblé (par nom) ou le premier encore vivant."""
-        alive = [e for e in self.enemies if e.is_alive()]
-        if not alive:
-            return None
-        if name is None:
-            return alive[0]
-        for e in alive:
-            if e.name.lower() == name.lower():
-                return e
-        return None
+        # Objets
+        lines.append(self.get_inventory())
+
+        # Rappel des commandes
+        lines.append(
+            "\nCommandes : "
+            "go <dir> | back | look | take <item> | drop <item> | check | "
+            "talk <pnj> | attack <ennemi> | help | quit"
+        )
+
+        return "\n".join(lines)
