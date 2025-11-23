@@ -1,96 +1,107 @@
 # player.py
-# Classe représentant le joueur principal (héros du jeu)
+"""
+Classe Player : le joueur.
+
+Attributs
+---------
+name : str
+    Nom du joueur.
+current_room : Room
+    Lieu courant.
+history : list[Room]
+    Lieux précédemment visités (pile pour "back").
+inventory : list[Item]
+    Inventaire du joueur.
+max_weight : int | float
+    Poids maximal transportable.
+hp : int
+    Points de vie.
+atk : int
+    Attaque.
+defense : int
+    Défense.
+has_crystal : bool
+    Indique si le joueur possède le cristal de propulsion.
+
+Méthodes
+--------
+move_to(room: Room) -> None
+    Déplace le joueur vers un nouveau lieu et met à jour l'historique.
+go_back() -> Room | None
+    Revient au lieu précédent si possible.
+get_history() -> str
+    Affiche l'historique des lieux visités.
+get_inventory() -> str
+    Affiche l'inventaire.
+carrying_weight() -> float
+    Poids total porté.
+can_take(item: Item) -> bool
+    True si le joueur peut prendre l'objet.
+"""
 
 class Player:
-    """Représente le joueur : ses statistiques, son inventaire et sa position."""
+    """Représente le joueur et son état."""
 
-    def __init__(self, name="Drake", starting_room=None):
-        self.log = []  # historique des actions du joueur
-        # --- Statistiques principales ---
+    def __init__(self, name, starting_room, max_weight=10):
         self.name = name
-        self.hp = 100
-        self.max_hp = 100
-        self.atk = 10
-        self.defense = 5
-        self.energie = 100
-        self.moral = 50
-        self.reputation = 50
-
-        # --- État / contexte ---
-        self.inventory = []          # liste d'objets (Item)
-        self.current_room = None     # référence vers l'objet Room actuel
         self.current_room = starting_room
+        self.history = []        # pile de Room
+        self.inventory = []      # list[Item]
+        self.max_weight = max_weight
 
+        # Stats de base (combat)
+        self.hp = 20
+        self.atk = 6
+        self.defense = 2
 
-    # -------------------------------
-    # Gestion de l’inventaire
-    # -------------------------------
-    def add_item(self, item):
-        """Ajoute un objet à l’inventaire."""
-        self.inventory.append(item)
-        return f"{item.name} ajouté à l’inventaire."
+        # Quête principale
+        self.has_crystal = False
 
-    def remove_item(self, item_name):
-        """Retire un objet de l’inventaire par son nom."""
-        for i, it in enumerate(self.inventory):
-            if it.name.lower() == item_name.lower():
-                return self.inventory.pop(i)
-        return None
+    # --- Déplacement et historique ---
 
-    def use_item(self, item_name):
-        """Utilise un objet de l’inventaire."""
-        item = self.remove_item(item_name)
-        if not item:
-            return "Objet introuvable dans votre inventaire."
-        return item.use(self)
+    def move_to(self, room):
+        """Déplace le joueur et mémorise l'ancienne pièce dans l'historique."""
+        if self.current_room is not None:
+            self.history.append(self.current_room)
+        self.current_room = room
 
-    def get_inventory(self):
-        """Retourne la liste formatée des objets."""
-        if not self.inventory:
-            return "Inventaire vide."
-        text = "Inventaire :\n"
-        for it in self.inventory:
-            text += f"- {it.name} ({it.effect_type}+{it.value})\n"
-        return text.strip()
-
-    # -------------------------------
-    # Statut / affichage
-    # -------------------------------
-    def get_status(self):
-        """Retourne un résumé complet des stats."""
-        return (
-            f"PV: {self.hp}/{self.max_hp} | ATK: {self.atk} | DEF: {self.defense}\n"
-            f"Énergie: {self.energie} | Moral: {self.moral} | Réputation: {self.reputation}"
-        )
-
-    # -------------------------------
-    # Gestion combat
-    # -------------------------------
-    def is_alive(self):
-        """Retourne True si le joueur est encore en vie."""
-        return self.hp > 0
-
-    def take_damage(self, amount):
-        """Fait subir des dégâts au joueur."""
-        dmg = max(0, amount - self.defense)
-        self.hp = max(0, self.hp - dmg)
-        return dmg
-    
-    
-
-    # -------------------------------
-    # Historique d’actions
-    # -------------------------------
-    def log_event(self, text):
-        """Ajoute un événement à l’historique du joueur."""
-        if not hasattr(self, "log"):
-            self.log = []
-        if text:
-            self.log.append(text)
+    def go_back(self):
+        """Revient à la pièce précédente si possible, sinon None."""
+        if not self.history:
+            return None
+        previous = self.history.pop()
+        self.current_room = previous
+        return previous
 
     def get_history(self):
-        """Retourne les dix dernières actions du joueur."""
-        if not hasattr(self, "log") or not self.log:
-            return "Aucun événement enregistré."
-        return "Historique des actions :\n" + "\n".join(self.log[-10:])
+        """Retourne une description de l'historique des lieux visités."""
+        if not self.history:
+            return ""
+        lines = ["Vous avez déjà visité les pièces suivantes :"]
+        # On affiche les descriptions des pièces (sans doublon éventuel)
+        seen = set()
+        for room in self.history:
+            if room.description not in seen:
+                seen.add(room.description)
+                lines.append(f"- {room.description}")
+        return "\n".join(lines)
 
+    # --- Inventaire ---
+
+    def carrying_weight(self):
+        """Retourne le poids total des objets portés."""
+        return sum(item.weight for item in self.inventory)
+
+    def can_take(self, item):
+        """True si le joueur peut prendre l'objet (poids max non dépassé)."""
+        return self.carrying_weight() + item.weight <= self.max_weight
+
+    def get_inventory(self):
+        """Retourne une description de l'inventaire du joueur."""
+        if not self.inventory:
+            return "Votre inventaire est vide."
+        lines = ["Vous disposez des items suivants :"]
+        for item in self.inventory:
+            lines.append(f"- {item}")
+        lines.append(f"Poids total : {self.carrying_weight()} / {self.max_weight} kg")
+        return "\n".join(lines)
