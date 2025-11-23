@@ -1,264 +1,308 @@
 # game.py
-# Boucle principale : relie Command, Actions, monde (Rooms), et fins (Win).
+"""
+Module principal : gestion du jeu, de la map et de la boucle principale.
 
-from player import Player
+Classes
+-------
+Game
+"""
+
 from room import Room
-from command import Command
-from win import Win
+from player import Player
 from item import Item
 from character import Character
 from enemy import Enemy
-import config
-import actions
+from command import Command
+
+DEBUG = False  # mettre à True pour voir d'éventuels messages de debug
 
 
 class Game:
-    """Orchestrateur du jeu."""
+    """Classe principale gérant le monde, le joueur et la boucle de jeu."""
 
     def __init__(self):
-        self.rooms = {}         # name -> Room
-        self.items_catalog = {} # name -> Item (modèle)
-        self.pnj_catalog = {}   # name -> Character
-        self.enemy_catalog = {} # name -> Enemy (modèle)
-        self.player = None
-        self.is_running = True
-        self.kael_defeated = False
+        # Création des lieux
+        self._create_world()
 
-    # ---------- Initialisation ----------
-    def start_game(self):
-        print(config.INTRO_TEXT.strip())
-        self._build_catalogs()
-        self._build_world()
-        start_room = self.rooms[config.START_ROOM]
-        self.player = Player("Orion Vale", starting_room=start_room)
-        self.player.current_room = self.rooms[config.START_ROOM]
+        # Demander le nom du joueur
+        name = input("Entrez le nom de votre capitaine : ").strip()
+        if not name:
+            name = "Capitaine sans nom"
 
-        print(self.help_text())
-        print("\n" + start_room.describe())
+        # Création du joueur à la baie de crash
+        self.player = Player(name, self.baie)
 
-    def _build_catalogs(self):
-        # Items
-        for name, d in config.items_config.items():
-            self.items_catalog[name] = Item(
-                name=name,
-                description=d["description"],
-                effect_type=d["effect_type"],
-                value=d["value"],
-                usable=True
-            )
-        # PNJ
-        for name, d in config.pnj_config.items():
-            self.pnj_catalog[name] = Character(
-                name=name,
-                dialogues=d.get("dialogues", []),
-                alignment=d.get("alignment", "neutral"),
-                gives_item=d.get("gives_item")
-            )
-        # Enemies
-        for name, d in config.enemies_config.items():
-            self.enemy_catalog[name] = Enemy(
-                name=name,
-                hp=d["hp"],
-                atk=d["atk"],
-                defense=d["defense"],
-                is_boss=d.get("is_boss", False),
-                loot=d.get("loot")
-            )
+        # Flag de boucle principale
+        self.running = True
 
-    def _clone_item(self, name):
-        """Crée une copie indépendante d’un item du catalogue."""
-        model = self.items_catalog.get(name)
-        if model is None:
-            return None
-        # On retourne une nouvelle instance identique
-        return Item(
-            name=model.name,
-            description=model.description,
-            effect_type=model.effect_type,
-            value=model.value,
-            usable=model.usable
+    # ------------------------------------------------------------------
+    # Construction du monde
+    # ------------------------------------------------------------------
+
+    def _create_world(self):
+        """Crée les salles, les objets, les PNJ, les ennemis et les liens."""
+
+        # --- Salles principales ---
+        self.baie = Room(
+            "Baie de crash",
+            "dans la baie de crash du Vigilant, entouré de débris fumants."
+        )
+        self.plaines = Room(
+            "Plaines d'Eridani",
+            "sur les plaines froides d'Eridani, balayées par un vent chargé de poussière."
+        )
+        self.grotte = Room(
+            "Grotte cristalline",
+            "dans une grotte éclairée par des cristaux instables."
+        )
+        self.bunker = Room(
+            "Bunker de maintenance",
+            "dans un ancien bunker technique enfoui sous la roche."
+        )
+        self.ville = Room(
+            "Ville minière",
+            "au cœur d'une ville minière misérable, saturée de propagande."
+        )
+        self.marche = Room(
+            "Marché clandestin",
+            "au milieu d'un marché clandestin bruyant et surpeuplé."
+        )
+        self.tour = Room(
+            "Tour de contrôle",
+            "dans la tour de contrôle, dominant les installations d'Eridani."
+        )
+        self.plateforme = Room(
+            "Plateforme orbitale",
+            "sur une plateforme orbitale à ciel ouvert, dominant la planète."
         )
 
-    def _clone_enemy(self, name):
-        """Crée une copie indépendante d’un ennemi (HP propres)."""
-        model = self.enemy_catalog.get(name)
-        if not model:
-            return None
-        return Enemy(model.name, model.hp, model.atk, model.defense, model.is_boss, model.loot)
+        # --- Liens (N, S, E, W, U, D) ---
+        # Baie <-> Plaines
+        self.baie.exits["N"] = self.plaines
+        self.plaines.exits["S"] = self.baie
 
-    def _build_world(self):
-        """Construit toutes les planètes (Rooms) à partir de config."""
-        for rname, d in config.rooms_config.items():
-            # ⚠️ Correction ici : on ne rappelle pas deux fois _clone_item()
-            items = []
-            for n in d.get("items", []):
-                clone = self._clone_item(n)
-                if clone:
-                    items.append(clone)
+        # Plaines <-> Grotte
+        self.plaines.exits["E"] = self.grotte
+        self.grotte.exits["W"] = self.plaines
 
-            pnj = [self.pnj_catalog[n] for n in d.get("pnj", []) if n in self.pnj_catalog]
-            enemies = [self._clone_enemy(n) for n in d.get("enemies", []) if self._clone_enemy(n)]
+        # Grotte <-> Bunker
+        self.grotte.exits["S"] = self.bunker
+        self.bunker.exits["N"] = self.grotte
 
-            room = Room(
-                name=rname,
-                description=d.get("description", ""),
-                connected_rooms=d.get("connected_rooms", {}),
-                items=items,
-                pnj=pnj,
-                enemies=enemies
-            )
+        # Baie <-> Ville
+        self.baie.exits["E"] = self.ville
+        self.ville.exits["W"] = self.baie
 
-            # Attache une référence temporaire vers player (initialisée après)
-            for ch in room.pnj:
-                setattr(ch, "_player_ref", None)
+        # Ville -> Marché (sens unique vers le bas)
+        self.ville.exits["D"] = self.marche
+        # Marché -> Bunker (on remonte par des tunnels)
+        self.marche.exits["N"] = self.bunker
 
-            self.rooms[rname] = room
+        # Baie <-> Tour (vertical U/D)
+        self.baie.exits["U"] = self.tour
+        self.tour.exits["D"] = self.baie
 
-    # ---------- Boucle ----------
-    def game_loop(self):
-        while self.is_running:
-            if self._check_ends():
-                break
-            raw = input("\n> ")
-            cmd = Command(raw)
-            cmd.parse()
+        # Tour <-> Plateforme
+        self.tour.exits["E"] = self.plateforme
+        self.plateforme.exits["W"] = self.tour
+
+        # --- Objets ---
+        # Baie : petits débris
+        balise = Item(
+            "balise de détresse",
+            "une petite balise de détresse du Vigilant.",
+            2
+        )
+        self.baie.inventory.append(balise)
+
+        # Grotte : fragment de noyau
+        fragment = Item(
+            "fragment de noyau",
+            "un fragment de noyau énergétique instable.",
+            1
+        )
+        self.grotte.inventory.append(fragment)
+
+        # Bunker : kit de réparation
+        kit = Item(
+            "kit de réparation",
+            "un kit de réparation standard pour vaisseau.",
+            3
+        )
+        self.bunker.inventory.append(kit)
+
+        # Marché : carte d'Eridani
+        carte = Item(
+            "carte d'Eridani",
+            "une carte grossière des principaux sites d'Eridani Prime.",
+            1
+        )
+        self.marche.inventory.append(carte)
+
+        # Tour : balise quantique
+        beamer = Item(
+            "balise quantique",
+            "un prototype de téléporteur expérimental (encore instable).",
+            2
+        )
+        self.tour.inventory.append(beamer)
+
+        # --- PNJ ---
+        # Baie
+        tech = Character(
+            "Lira",
+            "une technicienne du Vigilant, couverte de suie.",
+            self.baie,
+            [
+                "On a perdu beaucoup de modules... Mais tant qu'on trouve un cristal de propulsion, on peut repartir.",
+                "J'ai vu une créature dans les plaines, elle semblait se nourrir de cristaux..."
+            ]
+        )
+        self.baie.characters.append(tech)
+
+        # Plaines
+        scout = Character(
+            "Tedan",
+            "un éclaireur local, méfiant mais curieux.",
+            self.plaines,
+            [
+                "Les Raptors des collines adorent les cristaux instables. Si tu en cherches, commence par les chasser.",
+                "Les rebelles se cachent près du bunker, à l'Est puis au Sud."
+            ]
+        )
+        self.plaines.characters.append(scout)
+
+        # Grotte
+        vieux = Character(
+            "Vieil explorateur",
+            "un homme ridé, les yeux illuminés par la lumière des cristaux.",
+            self.grotte,
+            [
+                "Les cristaux d'Eridani sont instables. Certains explosent, d'autres alimentent des vaisseaux.",
+                "Si tu trouves un cristal de propulsion, ne le laisse pas tomber entre de mauvaises mains."
+            ]
+        )
+        self.grotte.characters.append(vieux)
+
+        # Ville
+        marchand_info = Character(
+            "Archiviste",
+            "un archiviste fatigué, gardien de vieux registres.",
+            self.ville,
+            [
+                "Le capitaine Vorn a ruiné cette planète, mais quelques résistants tiennent encore.",
+                "Au marché clandestin, on échange tout... sauf la liberté."
+            ]
+        )
+        self.ville.characters.append(marchand_info)
+
+        # Marché
+        courtier = Character(
+            "Courtier",
+            "un courtier au sourire douteux.",
+            self.marche,
+            [
+                "Quelques rumeurs disent qu'un cristal de propulsion a été vu dans les plaines.",
+                "Si tu veux quitter Eridani, tu auras besoin de ce cristal. Et d'un peu de chance."
+            ]
+        )
+        self.marche.characters.append(courtier)
+
+        # Tour
+        oracle = Character(
+            "Oracle",
+            "une IA holographique projetée au centre de la salle de contrôle.",
+            self.tour,
+            [
+                "Trajectoires stables seulement si le module de propulsion est opérationnel.",
+                "Les signaux rebelles convergent vers Nova Terra... mais tu dois d'abord sauver ton équipage."
+            ]
+        )
+        self.tour.characters.append(oracle)
+
+        # Plateforme
+        rebelle = Character(
+            "Caporale Yara",
+            "une combattante rebelle, regard déterminé.",
+            self.plateforme,
+            [
+                "Si tu réussis à remettre le Vigilant en marche, ramène ces gens loin d'ici.",
+                "On te couvrira depuis la surface. Toi, occupe-toi du vaisseau."
+            ]
+        )
+        self.plateforme.characters.append(rebelle)
+
+        # --- Ennemis ---
+        # Raptor dans les plaines, avec le cristal en loot
+        cristal = Item(
+            "cristal de propulsion",
+            "un cristal énergétique indispensable à la réparation du Vigilant.",
+            4
+        )
+        raptor = Enemy(
+            "Raptor des collines",
+            "une créature féroce recouverte de cristaux luminescents.",
+            self.plaines,
+            hp=15,
+            atk=5,
+            loot=cristal
+        )
+        self.plaines.enemies.append(raptor)
+
+        # Drone de sécurité dans le bunker
+        drone = Enemy(
+            "Drone de sécurité",
+            "un ancien drone de maintenance devenu agressif.",
+            self.bunker,
+            hp=10,
+            atk=4,
+            loot=None
+        )
+        self.bunker.enemies.append(drone)
+
+        # Sentinelle sur la plateforme
+        sentinelle = Enemy(
+            "Sentinelle orbitale",
+            "une sentinelle robotique protégeant l'accès aux systèmes de lancement.",
+            self.plateforme,
+            hp=18,
+            atk=6,
+            loot=None
+        )
+        self.plateforme.enemies.append(sentinelle)
+
+    # ------------------------------------------------------------------
+    # Boucle principale
+    # ------------------------------------------------------------------
+
+    def welcome(self):
+        """Affiche le texte d'introduction du jeu."""
+        print(
+            "\nEn 2239, le vaisseau interstellaire 'Vigilant' s'est écrasé sur Eridani Prime.\n"
+            "Vous devez explorer la planète, rallier des alliés et trouver un cristal\n"
+            "de propulsion pour réparer le vaisseau et sauver votre équipage."
+        )
+        print("\nTapez 'help' pour voir la liste des commandes.\n")
+        print(self.player.current_room.get_long_description())
+
+    def play(self):
+        """Boucle principale du jeu."""
+        self.welcome()
+
+        while self.running:
             try:
-                out = cmd.execute(self)
-            except Exception as exc:
-                out = f"[ERREUR] {type(exc).__name__}: {exc}"
-            print(out if out else "(aucune sortie)")
-    def do_quitter(self):
-        """Quitte le jeu proprement."""
-        print("\nFermeture du jeu... Merci d’avoir joué à *Project Vigilant* 🌌")
-        exit(0)
+                raw = input("> ")
+            except (EOFError, KeyboardInterrupt):
+                print("\nInterruption. Fin du jeu.")
+                break
+
+            cmd = Command(raw)
+            output = cmd.execute(self)
+
+            if output:
+                print(output)
 
 
-
-    # ---------- Aide ----------
-    def help_text(self):
-        return (
-            "Commandes: explorer | parler <nom> | prendre <objet> | utiliser <objet> | "
-            "attaquer <ennemi> | inventaire | historique | aller <direction> | statut | soigner | fuir | quitter"
-        )
-
-    # ---------- Wrappers des actions (pour gérer contexte & cohérence) ----------
-    def do_explorer(self):
-        return actions.explorer(self.player.current_room)
-
-    def do_parler(self, name):
-        """Permet de parler à un PNJ présent dans la salle."""
-        if not name:
-            return "Parler à qui ?"
-        return actions.parler(self.player, self.player.current_room, name)
-
-
-
-    def do_attaquer(self, name):
-        """Permet d’attaquer un ennemi présent dans la salle."""
-        if not name:
-            return "Attaquer qui ?"
-        try:
-            return actions.attaquer(self.player, self.player.current_room, name)
-        except Exception as e:
-            return f"[ERREUR] {type(e).__name__}: {e}"
-
-    def do_explorer(self):
-        """Décrit la salle actuelle."""
-        if not self.player.current_room:
-            return "Erreur : aucune salle actuelle définie."
-        return self.player.current_room.describe()
-
-    def do_statut(self):
-        """Affiche les stats actuelles du joueur."""
-        return self.player.get_status()
-
-    def do_inventaire(self):
-        """Affiche l’inventaire du joueur."""
-        return self.player.get_inventory()
-
-
-    def do_prendre(self, item_name):
-        if not item_name:
-            return "Quel objet prendre ?"
-        # Si loot d'un ennemi vient d'être annoncé, il est dans la Room sous forme d'Item catalogué
-        # On cherche d'abord dans la salle
-        it = self.player.current_room.remove_item(item_name)
-        if it:
-            self.player.add_item(it)
-            self.player.log_event(f"Pris {it.name}")
-            return f"Vous prenez {it.name}."
-        # Si un PNJ a annoncé de l'aide (gives_item)
-        for ch in self.player.current_room.pnj:
-            if ch.gives_item and ch.gives_item.lower() == item_name.lower():
-                it2 = self._clone_item(ch.gives_item)
-                if it2:
-                    self.player.add_item(it2)
-                    ch.gives_item = None  # ne redonne plus
-                    self.player.log_event(f"Reçu de {ch.name}: {it2.name}")
-                    return f"{ch.name} vous remet {it2.name}."
-        return "Objet introuvable ici."
-
-    def do_utiliser(self, item_name):
-        if not item_name:
-            return "Utiliser quoi ?"
-        res = actions.utiliser(self.player, item_name)
-        if "Canon Plasma" in item_name and "ATK" in res:
-            self.player.log_event("Armement renforcé (Canon Plasma)")
-        return res
-
-    def do_inventaire(self):
-        return actions.inventaire(self.player)
-
-    def do_historique(self):
-        return actions.historique(self.player)
-
-    def do_aller(self, direction):
-        """Déplace le joueur dans la direction indiquée."""
-        if not direction:
-            return "Aller où ?"
-
-        # Appel à actions.voyager, qui gère le mouvement et renvoie la description du nouveau lieu ou un message d’erreur
-        msg = actions.voyager(self.player, self.rooms, direction)
-
-        # Si on a effectivement bougé, rattache le joueur aux PNJ de la nouvelle salle
-        if self.player.current_room:
-            for ch in self.player.current_room.pnj:
-                setattr(ch, "_player_ref", self.player)
-
-        return msg
-
-
-    def do_soigner(self):
-        return actions.soigner(self.player)
-
-    def do_fuir(self):
-        """Permet au joueur de fuir le combat en cours."""
-        try:
-            return actions.fuir_combat(self.player, self.player.current_room)
-        except Exception as e:
-            return f"[ERREUR] {type(e).__name__}: {e}"
-
-
-    # ---------- Fins ----------
-    def _check_ends(self):
-        # Défaite ?
-        defeat = Win.check_defeat(self.player)
-        if defeat:
-            print(Win.show_ending(defeat))
-            return True
-        # Victoire / Empire ?
-        victory = Win.check_victory(self.player)
-        if victory:
-            print(Win.show_ending(victory))
-            return True
-        # Fin neutre si Kael vaincu et pas d’autre condition satisfaite
-        if self.kael_defeated:
-            print(Win.show_ending(Win.check_neutral_end(self.player)))
-            return True
-        return False
-
-
-if __name__ == "__main__":   
-    g = Game()
-    g.start_game()
-    g.game_loop()
+if __name__ == "__main__":
+    game = Game()
+    game.play()
