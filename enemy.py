@@ -1,37 +1,43 @@
 # enemy.py
-# Gestion des ennemis et du système de combat
+"""
+Classe Enemy : représentant un ennemi simple.
+
+Attributs
+---------
+name : str
+    Nom de l'ennemi.
+description : str
+    Description courte.
+current_room : Room
+    Lieu actuel de l'ennemi.
+hp : int
+    Points de vie.
+atk : int
+    Points d'attaque (dégâts bruts).
+loot : Item | None
+    Objet laissé tomber à sa mort (facultatif).
+
+Méthodes
+--------
+__str__() -> str
+    Représentation textuelle.
+is_alive() -> bool
+    True si l'ennemi est encore en vie (> 0 PV).
+"""
 
 class Enemy:
-    """Classe représentant un ennemi dans le jeu."""
+    """Ennemi basique du jeu."""
 
-    def __init__(self, name, hp, atk, defense, is_boss=False, loot=None):
+    def __init__(self, name, description, current_room, hp, atk, loot=None):
         self.name = name
+        self.description = description
+        self.current_room = current_room
         self.hp = hp
-        self.max_hp = hp
         self.atk = atk
-        self.defense = defense
-        self.is_boss = is_boss
-        self.loot = loot  # nom de l’objet lâché ou None
+        self.loot = loot
 
-    def attack(self, player):
-        """Inflige des dégâts au joueur et renvoie le nombre de dégâts infligés."""
-        dmg = max(0, self.atk - player.defense)
-        player.hp = max(0, player.hp - dmg)
-        return dmg
-
-    def take_damage(self, value):
-        """Subit des dégâts (après défense) et renvoie le nombre de dégâts subis."""
-        dmg = max(0, value - self.defense)
-        self.hp = max(0, self.hp - dmg)
-        return dmg
+    def __str__(self):
+        return f"{self.name} : {self.description} (PV: {self.hp}, ATK: {self.atk})"
 
     def is_alive(self):
-        """Retourne True si l'ennemi est encore en vie."""
         return self.hp > 0
-
-    def drop_loot(self):
-        """Renvoie le butin lâché par l’ennemi s’il en possède un."""
-        return self.loot
-
-    def __repr__(self):
-        return f"<Enemy {self.name}: HP={self.hp}/{self.max_hp}, ATK={self.atk}, DEF={self.defense}>"
