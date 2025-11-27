@@ -1,308 +1,323 @@
 # game.py
-"""
-Module principal : gestion du jeu, de la map et de la boucle principale.
-
-Classes
--------
-Game
-"""
+"""Main game: Vigilant — Chapter I: Eridani Prime."""
 
 from room import Room
-from player import Player
 from item import Item
-from character import Character
 from enemy import Enemy
+from character import Character
+from player import Player
 from command import Command
-
-DEBUG = False  # mettre à True pour voir d'éventuels messages de debug
 
 
 class Game:
-    """Classe principale gérant le monde, le joueur et la boucle de jeu."""
-
     def __init__(self):
-        # Création des lieux
-        self._create_world()
-
-        # Demander le nom du joueur
-        name = input("Entrez le nom de votre capitaine : ").strip()
-        if not name:
-            name = "Capitaine sans nom"
-
-        # Création du joueur à la baie de crash
-        self.player = Player(name, self.baie)
-
-        # Flag de boucle principale
+        self.rooms = {}
+        self.player = None
+        self.in_combat = False
+        self.current_enemy = None
         self.running = True
 
-    # ------------------------------------------------------------------
-    # Construction du monde
-    # ------------------------------------------------------------------
+        self._build_world()
+        self._intro_and_crash()
 
-    def _create_world(self):
-        """Crée les salles, les objets, les PNJ, les ennemis et les liens."""
+    # ================= WORLD BUILDING ===================
 
-        # --- Salles principales ---
-        self.baie = Room(
-            "Baie de crash",
-            "dans la baie de crash du Vigilant, entouré de débris fumants."
+    def _build_world(self):
+        # Rooms
+        eridani = Room(
+            "Eridani Prime",
+            "dans un district pauvre, des fumées noires s’élèvent au-dessus des toits. "
+            "Des affiches de propagande couvrent les murs. "
+            "Les habitants avancent avec un mélange de peur et de résignation."
         )
-        self.plaines = Room(
-            "Plaines d'Eridani",
-            "sur les plaines froides d'Eridani, balayées par un vent chargé de poussière."
+        avant_poste = Room(
+            "Avant-poste minier",
+            "au milieu d’échafaudages branlants, de gardes épuisés et de mineurs au regard vide. "
+            "L’air est lourd de poussière et d’électricité."
         )
-        self.grotte = Room(
-            "Grotte cristalline",
-            "dans une grotte éclairée par des cristaux instables."
+        marche = Room(
+            "Marché labyrinthique",
+            "un dédale d’allées étroites, d’échoppes sombres et de murmures étouffés. "
+            "Les hommes de main de Vorn rôdent à chaque coin d’ombre."
         )
-        self.bunker = Room(
-            "Bunker de maintenance",
-            "dans un ancien bunker technique enfoui sous la roche."
-        )
-        self.ville = Room(
-            "Ville minière",
-            "au cœur d'une ville minière misérable, saturée de propagande."
-        )
-        self.marche = Room(
-            "Marché clandestin",
-            "au milieu d'un marché clandestin bruyant et surpeuplé."
-        )
-        self.tour = Room(
-            "Tour de contrôle",
-            "dans la tour de contrôle, dominant les installations d'Eridani."
-        )
-        self.plateforme = Room(
-            "Plateforme orbitale",
-            "sur une plateforme orbitale à ciel ouvert, dominant la planète."
+        forteresse = Room(
+            "Cité-forteresse",
+            "des tours massives, des projecteurs écarlates et des soldats patrouillant sans relâche. "
+            "C’est ici que le Capitaine Vorn impose son règne."
         )
 
-        # --- Liens (N, S, E, W, U, D) ---
-        # Baie <-> Plaines
-        self.baie.exits["N"] = self.plaines
-        self.plaines.exits["S"] = self.baie
 
-        # Plaines <-> Grotte
-        self.plaines.exits["E"] = self.grotte
-        self.grotte.exits["W"] = self.plaines
+        # Connections (2D: W <-> E)
+        eridani.connect(avant_poste, "E")
+        avant_poste.connect(marche, "E")
+        marche.connect(forteresse, "E")
 
-        # Grotte <-> Bunker
-        self.grotte.exits["S"] = self.bunker
-        self.bunker.exits["N"] = self.grotte
+        # Store
+        self.rooms = {
+            "Eridani Prime": eridani,
+            "Avant-poste minier": avant_poste,
+            "Marché labyrinthique": marche,
+            "Cité-forteresse": forteresse,
+        }
 
-        # Baie <-> Ville
-        self.baie.exits["E"] = self.ville
-        self.ville.exits["W"] = self.baie
-
-        # Ville -> Marché (sens unique vers le bas)
-        self.ville.exits["D"] = self.marche
-        # Marché -> Bunker (on remonte par des tunnels)
-        self.marche.exits["N"] = self.bunker
-
-        # Baie <-> Tour (vertical U/D)
-        self.baie.exits["U"] = self.tour
-        self.tour.exits["D"] = self.baie
-
-        # Tour <-> Plateforme
-        self.tour.exits["E"] = self.plateforme
-        self.plateforme.exits["W"] = self.tour
-
-        # --- Objets ---
-        # Baie : petits débris
-        balise = Item(
-            "balise de détresse",
-            "une petite balise de détresse du Vigilant.",
-            2
+        # Items
+        medkit = Item(
+            "Trousse Médicale",
+            "Une trousse de soin rudimentaire (+25 PV).",
+            effect_type="heal",
+            value=25,
+            usable=True,
+            weight=3,
         )
-        self.baie.inventory.append(balise)
+        avant_poste.add_item(medkit)
 
-        # Grotte : fragment de noyau
-        fragment = Item(
-            "fragment de noyau",
-            "un fragment de noyau énergétique instable.",
-            1
+        # PNJ: Ralen
+        ralen = Character(
+            "Ralen",
+            "Un citoyen au regard vif malgré les cendres sur son visage."
         )
-        self.grotte.inventory.append(fragment)
 
-        # Bunker : kit de réparation
-        kit = Item(
-            "kit de réparation",
-            "un kit de réparation standard pour vaisseau.",
-            3
-        )
-        self.bunker.inventory.append(kit)
+        def talk_ralen(player, game, self_char):
+            if not player.met_ralen:
+                player.met_ralen = True
+                player.log("Vous avez rencontré Ralen à Eridani Prime.")
+                return (
+                    "Ralen : Vous n’avez pas l’air d’ici... "
+                    "Si vous voulez comprendre ce qui se passe, suivez la route vers l’est. "
+                    "Les mineurs de l’avant-poste vous diront le reste."
+                )
+            else:
+                return "Ralen : L’est vous attend toujours. Les mines, puis le marché... Et enfin Vorn."
 
-        # Marché : carte d'Eridani
-        carte = Item(
-            "carte d'Eridani",
-            "une carte grossière des principaux sites d'Eridani Prime.",
-            1
-        )
-        self.marche.inventory.append(carte)
+        ralen.on_talk = talk_ralen
+        eridani.add_character(ralen)
 
-        # Tour : balise quantique
-        beamer = Item(
-            "balise quantique",
-            "un prototype de téléporteur expérimental (encore instable).",
-            2
+        # PNJ: Ingénieur Malek
+        malek = Character(
+            "Ingénieur Malek",
+            "Un technicien nerveux qui tente de réparer une foreuse brisée."
         )
-        self.tour.inventory.append(beamer)
 
-        # --- PNJ ---
-        # Baie
-        tech = Character(
-            "Lira",
-            "une technicienne du Vigilant, couverte de suie.",
-            self.baie,
-            [
-                "On a perdu beaucoup de modules... Mais tant qu'on trouve un cristal de propulsion, on peut repartir.",
-                "J'ai vu une créature dans les plaines, elle semblait se nourrir de cristaux..."
-            ]
-        )
-        self.baie.characters.append(tech)
+        def talk_malek(player, game, self_char):
+            if player.resources >= 3:
+                return (
+                    "Malek : Vous avez du matériel ? Parfait. "
+                    "Je peux stabiliser les forages et calmer les gardes. "
+                    "Au marché, on murmure qu’un marchand détient un Cristal de propulsion."
+                )
+            else:
+                return (
+                    "Malek : Sans ressources, les gardes ne vous laisseront pas faire. "
+                    "Vous devrez sans doute vous salir les mains... ou négocier au marché."
+                )
 
-        # Plaines
-        scout = Character(
-            "Tedan",
-            "un éclaireur local, méfiant mais curieux.",
-            self.plaines,
-            [
-                "Les Raptors des collines adorent les cristaux instables. Si tu en cherches, commence par les chasser.",
-                "Les rebelles se cachent près du bunker, à l'Est puis au Sud."
-            ]
-        )
-        self.plaines.characters.append(scout)
+        malek.on_talk = talk_malek
+        avant_poste.add_character(malek)
 
-        # Grotte
-        vieux = Character(
-            "Vieil explorateur",
-            "un homme ridé, les yeux illuminés par la lumière des cristaux.",
-            self.grotte,
-            [
-                "Les cristaux d'Eridani sont instables. Certains explosent, d'autres alimentent des vaisseaux.",
-                "Si tu trouves un cristal de propulsion, ne le laisse pas tomber entre de mauvaises mains."
-            ]
+        # PNJ: Marchand
+        marchand = Character(
+            "Marchand",
+            "Un homme sec, aux yeux calculateurs, entouré de caisses verrouillées."
         )
-        self.grotte.characters.append(vieux)
 
-        # Ville
-        marchand_info = Character(
-            "Archiviste",
-            "un archiviste fatigué, gardien de vieux registres.",
-            self.ville,
-            [
-                "Le capitaine Vorn a ruiné cette planète, mais quelques résistants tiennent encore.",
-                "Au marché clandestin, on échange tout... sauf la liberté."
-            ]
-        )
-        self.ville.characters.append(marchand_info)
+        def talk_marchand(player, game, self_char):
+            if player.merchant_deal_done:
+                if player.merchant_sacrifice:
+                    return "Marchand : Les affaires sont les affaires. Profitez bien de votre cristal."
+                if player.merchant_refused:
+                    return "Marchand : Vous avez refusé. Je ne traite plus avec vous."
+   #             return "Marchand : Nous n’avons plus rien à négocier."
 
-        # Marché
-        courtier = Character(
-            "Courtier",
-            "un courtier au sourire douteux.",
-            self.marche,
-            [
-                "Quelques rumeurs disent qu'un cristal de propulsion a été vu dans les plaines.",
-                "Si tu veux quitter Eridani, tu auras besoin de ce cristal. Et d'un peu de chance."
-            ]
-        )
-        self.marche.characters.append(courtier)
+            print(
+                "Marchand : J'ai un Cristal de propulsion.\n"
+                "Mais je ne l’échange pas contre de l’argent.\n\n"
+                "Je veux un membre de votre équipage.\n"
+                "Il travaillera pour moi. C’est le prix.\n\n"
+                "1️⃣ Accepter l’échange (cristal + ressources, moral ↓)\n"
+                "2️⃣ Refuser (rencontre avec Yara)\n"
+            )
+            choix = input("> ").strip()
+            if choix == "1":
+                player.merchant_deal_done = True
+                player.merchant_sacrifice = True
+                player.moral -= 3
+                player.resources += 2
+                if not player.has_crystal:
+                    cristal = Item(
+                        "Cristal de propulsion",
+                        "Cristal énergétique indispensable à la réparation du Vigilant.",
+                        effect_type="quest",
+                        value=0,
+                        usable=False,
+                        weight=2,
+                    )
+                    player.add_item(cristal)
+                    player.has_crystal = True
+                return (
+                    "Le marchand sourit et fait emmener un membre de votre équipage.\n"
+                    "Vous obtenez le Cristal… mais à quel prix ?"
+                )
+            else:
+                player.merchant_deal_done = True
+                player.merchant_refused = True
+                player.met_yara = True
+                player.moral += 1
+                return (
+                    "Vous refusez net.\n"
+                    "Dans une ruelle sombre, une femme encapuchonnée vous observe...\n"
+                    "Yara : « Tu as refusé de vendre les tiens. On doit parler. »"
+                )
 
-        # Tour
-        oracle = Character(
-            "Oracle",
-            "une IA holographique projetée au centre de la salle de contrôle.",
-            self.tour,
-            [
-                "Trajectoires stables seulement si le module de propulsion est opérationnel.",
-                "Les signaux rebelles convergent vers Nova Terra... mais tu dois d'abord sauver ton équipage."
-            ]
-        )
-        self.tour.characters.append(oracle)
+        marchand.on_talk = talk_marchand
+        marche.add_character(marchand)
 
-        # Plateforme
-        rebelle = Character(
-            "Caporale Yara",
-            "une combattante rebelle, regard déterminé.",
-            self.plateforme,
-            [
-                "Si tu réussis à remettre le Vigilant en marche, ramène ces gens loin d'ici.",
-                "On te couvrira depuis la surface. Toi, occupe-toi du vaisseau."
-            ]
+        # PNJ: Yara
+        yara = Character(
+            "Yara",
+            "Une femme encapuchonnée, regard déterminé, symbole rebelle au poignet."
         )
-        self.plateforme.characters.append(rebelle)
 
-        # --- Ennemis ---
-        # Raptor dans les plaines, avec le cristal en loot
-        cristal = Item(
-            "cristal de propulsion",
-            "un cristal énergétique indispensable à la réparation du Vigilant.",
-            4
-        )
-        raptor = Enemy(
-            "Raptor des collines",
-            "une créature féroce recouverte de cristaux luminescents.",
-            self.plaines,
-            hp=15,
-            atk=5,
-            loot=cristal
-        )
-        self.plaines.enemies.append(raptor)
+        def talk_yara(player, game, self_char):
+            if not player.met_yara:
+                return "Une silhouette encapuchonnée passe fugacement, puis disparaît."
+            if not player.vorn_defeated:
+                return (
+                    "Yara : Tu as gardé ton équipage. Bien.\n"
+                    "Nous préparons un assaut sur la forteresse. "
+                    "Abats Vorn, et nous t’aiderons à quitter cette planète."
+                )
+            else:
+                return (
+                    "Yara : Vorn est tombé grâce à toi. "
+                    "Quand ton vaisseau sera prêt, Eridani se souviendra de ton nom."
+                )
 
-        # Drone de sécurité dans le bunker
-        drone = Enemy(
-            "Drone de sécurité",
-            "un ancien drone de maintenance devenu agressif.",
-            self.bunker,
-            hp=10,
-            atk=4,
-            loot=None
-        )
-        self.bunker.enemies.append(drone)
+        yara.on_talk = talk_yara
+        marche.add_character(yara)
 
-        # Sentinelle sur la plateforme
-        sentinelle = Enemy(
-            "Sentinelle orbitale",
-            "une sentinelle robotique protégeant l'accès aux systèmes de lancement.",
-            self.plateforme,
-            hp=18,
-            atk=6,
-            loot=None
-        )
-        self.plateforme.enemies.append(sentinelle)
+        # Enemies
+        patrouilleur = Enemy("Patrouilleur de Vorn", hp=40, atk=7, defense=2)
+        avant_poste.add_enemy(patrouilleur)
 
-    # ------------------------------------------------------------------
-    # Boucle principale
-    # ------------------------------------------------------------------
-
-    def welcome(self):
-        """Affiche le texte d'introduction du jeu."""
-        print(
-            "\nEn 2239, le vaisseau interstellaire 'Vigilant' s'est écrasé sur Eridani Prime.\n"
-            "Vous devez explorer la planète, rallier des alliés et trouver un cristal\n"
-            "de propulsion pour réparer le vaisseau et sauver votre équipage."
+        vorn = Enemy(
+            "Capitaine Vorn",
+            hp=85,
+            atk=12,
+            defense=4,
+            is_boss=True,
+            loot=[
+                Item(
+                    "Cristal de propulsion",
+                    "Cristal capturé dans les réserves de Vorn.",
+                    effect_type="quest",
+                    value=0,
+                    usable=False,
+                    weight=2,
+                )
+            ],
         )
-        print("\nTapez 'help' pour voir la liste des commandes.\n")
+        forteresse.add_enemy(vorn)
+
+    # ================= INTRO & CRASH ====================
+
+    def _intro_and_crash(self):
+        print("En 2239, l'ESIEE lance le vaisseau interstellaire 'Vigilant' pour trouver un monde habitable.")
+        print("Une onde gravitationnelle inconnue projette l'appareil vers un système lointain.")
+        print("Réparez le Vigilant, ralliez des alliés, et décidez du destin de l'humanité.\n")
+
+        name = input("Entrez le nom de votre capitaine (laisser vide pour 'Orion Vale') : ").strip()
+        if not name:
+            name = "Orion Vale"
+
+        start_room = self.rooms["Eridani Prime"]
+        self.player = Player(name, start_room)
+
+        print("\n🌌 CHAPITRE I — ERIDANI PRIME 🌌")
+        print("Vous vous réveillez dans un caisson cryo… Le Vigilant tremble… Un crash est imminent.\n")
+
+        print("🔥 Le crash est inévitable. Vous devez faire un choix :")
+        print("1️⃣ Sauver tout l'équipage (moral +2, attaque +1, ressources −2)")
+        print("2️⃣ Sauver les ressources (défense +3, ressources +2, moral −2)")
+
+        choix = ""
+        while choix not in ("1", "2"):
+            choix = input("> ").strip()
+
+        translator = Item(
+            "Puce neuronale traductrice",
+            "Implant qui traduit en temps réel les langues d’Eridani.",
+            effect_type="quest",
+            value=0,
+            usable=False,
+            weight=1,
+        )
+        self.player.add_item(translator)
+        self.player.has_translator = True
+
+        if choix == "1":
+            self.player.moral += 2
+            self.player.atk += 1
+            self.player.resources = max(0, self.player.resources - 2)
+            print("\nVous arrachez des survivants des flammes… mais perdez une partie du matériel vital.")
+            print("➡️ Un membre d’équipage utilise sa puce neuronale traductrice.\n")
+        else:
+            self.player.defense += 3
+            self.player.resources += 4
+            self.player.moral -= 2
+            # Création de l'item spécial obtenu lorsque le joueur sauve les ressources
+            module = Item(
+                "Module d'énergie stabilisé",
+                "Un module récupéré intact dans les soutes. "
+                "Il améliore la stabilité du réacteur portable (+2 DEF lorsqu'utilisé).",
+                effect_type="def",
+                value=2,
+                usable=True,
+                weight=2, 
+            )
+            self.player.add_item(module)
+
+            print("\nVous scellez les compartiments pleins d’équipage pour sauver les soutes.")
+            print("\nCependant, il vous reste quelques survivants.")
+            print("➡️ La puce neuronale d’un officier vous sert désormais de traducteur.")
+            print("➡️ Vous récupérez des modules, de l’énergie et des pièces intactes…")
+            print("➡️ Vous récupérez un Module d'énergie stabilisé dans les décombres.")
+            print("   Ce composant expérimental renforcera temporairement votre défense.")
+            print("…mais aucun Cristal de propulsion n’a survécu au crash.\n")
+
         print(self.player.current_room.get_long_description())
+        print(self.help_text() + "\n")
+        
+    # =================== HELP TEXT ======================
+    def help_text(self):
+        return (
+            "Commandes disponibles :\n"
+            "g : aller <direction> | retour | o : observer | p : prendre <objet> | j : jeter <objet> | i : inventaire | e : examiner <objet> |\n"    
+            "t : parler <nom> | a : attaquer <ennemi> | u : utiliser <objet> | s : statut | h : historique | ia | q : quitter"
+        
+        )
+
+
+
+    # ================== MAIN LOOP =======================
 
     def play(self):
-        """Boucle principale du jeu."""
-        self.welcome()
-
         while self.running:
             try:
-                raw = input("> ")
-            except (EOFError, KeyboardInterrupt):
-                print("\nInterruption. Fin du jeu.")
+                cmd_line = input("> ")
+            except EOFError:
                 break
 
-            cmd = Command(raw)
+            cmd = Command(cmd_line)
             output = cmd.execute(self)
 
             if output:
                 print(output)
 
+            # 🔥 AFFICHER LES COMMANDES APRÈS CHAQUE ACTION
+            print("\n" + self.help_text() + "\n")
+
+
 
 if __name__ == "__main__":
-    game = Game()
-    game.play()
+    g = Game()
+    g.play()

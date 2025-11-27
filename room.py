@@ -1,99 +1,128 @@
 # room.py
-"""
-Classe Room : représente un lieu du jeu.
-
-Attributs
----------
-name : str
-    Nom du lieu.
-description : str
-    Description textuelle du lieu.
-exits : dict[str, Room]
-    Dictionnaire des sorties, indexé par une direction (N, S, E, W, U, D).
-inventory : list[Item]
-    Liste des objets présents dans la pièce.
-characters : list[Character]
-    Liste des personnages non-joueurs présents.
-enemies : list[Enemy]
-    Liste des ennemis présents.
-
-Méthodes
---------
-get_exit(direction: str) -> Room | None
-    Retourne la salle dans la direction donnée, ou None.
-get_exit_string() -> str
-    Retourne une description textuelle des sorties.
-get_inventory() -> str
-    Retourne une description textuelle des objets présents.
-get_long_description() -> str
-    Description complète du lieu (texte, sorties, PNJ, ennemis, commandes).
-"""
+"""Room class for the Vigilant TBA game."""
 
 class Room:
-    """Lieu du jeu (une pièce, une zone, etc.)."""
-
     def __init__(self, name, description):
         self.name = name
         self.description = description
-        self.exits = {}          # dict[direction -> Room]
-        self.inventory = []      # list[Item]
-        self.characters = []     # list[Character]
-        self.enemies = []        # list[Enemy]
 
-    # --- Déplacements ---
+        # Exits = {"N": room, "E": room, ...}
+        self.exits = {}
+
+        # Content of the room
+        self.items = []
+        self.characters = []
+        self.enemies = []
+
+    # ============================================================
+    # CONNECTIONS
+    # ============================================================
+    def connect(self, other_room, direction):
+        """
+        Connect two rooms bidirectionally.
+        direction: 'N', 'E', 'S', 'O', 'H', 'B'
+        """
+        self.exits[direction.upper()] = other_room
+
+        # Create reverse link
+        reverse = {
+            "N": "S",
+            "S": "N",
+            "E": "O",
+            "O": "E",
+            "H": "B",
+            "B": "H",
+        }
+
+        if direction.upper() in reverse:
+            other_room.exits[reverse[direction.upper()]] = self
 
     def get_exit(self, direction):
-        """Retourne la salle associée à la direction donnée, ou None."""
         direction = direction.upper()
         return self.exits.get(direction, None)
 
+    # ============================================================
+    # ITEMS
+    # ============================================================
+    def add_item(self, item):
+        self.items.append(item)
+
+    def remove_item(self, item):
+        if item in self.items:
+            self.items.remove(item)
+
+    def find_item(self, name):
+        name = name.lower()
+        for it in self.items:
+            if it.name.lower() == name:
+                return it
+        return None
+
+    # ============================================================
+    # CHARACTERS (NPC)
+    # ============================================================
+    def add_character(self, character):
+        self.characters.append(character)
+
+    def find_character(self, name):
+        name = name.lower()
+        for c in self.characters:
+            if c.name.lower() == name:
+                return c
+        return None
+
+    # ============================================================
+    # ENEMIES
+    # ============================================================
+    def add_enemy(self, enemy):
+        self.enemies.append(enemy)
+
+    def find_enemy(self, name):
+        name = name.lower()
+        for e in self.enemies:
+            if e.name.lower() == name and e.is_alive():
+                return e
+        return None
+
+    # ============================================================
+    # DESCRIPTION
+    # ============================================================
     def get_exit_string(self):
-        """Retourne une chaîne décrivant les sorties disponibles."""
         if not self.exits:
-            return "Sorties: aucune"
-        exit_string = "Sorties: "
+            return "Aucune sortie."
+
+        # Conversion directions EN -> FR
+        dir_fr = {
+            "N": "N",
+            "S": "S",
+            "E": "E",
+            "O": "O",   # ← important : W devient O pour Ouest
+            "H": "H",   # Haut
+            "B": "B",   # Bas
+        }
+
+        lines = ["Sorties :"]
         for direction, room in self.exits.items():
-            if room is not None:
-                exit_string += direction + ", "
-        exit_string = exit_string.strip(", ")
-        return exit_string
+            d = dir_fr.get(direction, direction)
+            lines.append(f"  {d} → {room.name}")
 
-    # --- Inventaire de la pièce ---
-
-    def get_inventory(self):
-        """Retourne une chaîne décrivant les objets présents dans la pièce."""
-        if not self.inventory:
-            return "Il n'y a rien ici."
-        lines = ["La pièce contient :"]
-        for item in self.inventory:
-            lines.append(f"- {item}")
         return "\n".join(lines)
 
-    # --- Description complète ---
+
+
 
     def get_long_description(self):
-        """Retourne une description longue : lieu, sorties, PNJ, ennemis, commandes."""
-        lines = [f"\nVous êtes {self.description}", self.get_exit_string()]
-
-        # PNJ
+        desc = f"== {self.name} ==\n{self.description}\n"
+        
         if self.characters:
-            pnj_names = ", ".join(c.name for c in self.characters)
-            lines.append(f"Personnages présents : {pnj_names}")
+            desc += "Personnes présentes : " + ", ".join(c.name for c in self.characters) + "\n"
 
-        # Ennemis
         if self.enemies:
-            enemy_names = ", ".join(e.name for e in self.enemies if e.is_alive())
-            if enemy_names:
-                lines.append(f"Ennemis détectés : {enemy_names}")
+            desc += "Ennemis : " + ", ".join(e.name for e in self.enemies if e.is_alive()) + "\n"
 
-        # Objets
-        lines.append(self.get_inventory())
+        if self.items:
+            desc += "Objets : " + ", ".join(i.name for i in self.items) + "\n"
 
-        # Rappel des commandes
-        lines.append(
-            "\nCommandes : "
-            "go <dir> | back | look | take <item> | drop <item> | check | "
-            "talk <pnj> | attack <ennemi> | help | quit"
-        )
+        desc += self.get_exit_string()
+        return desc
 
-        return "\n".join(lines)

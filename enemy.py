@@ -1,43 +1,41 @@
 # enemy.py
-"""
-Classe Enemy : représentant un ennemi simple.
+"""Enemy class: basic combat stats and loot."""
 
-Attributs
----------
-name : str
-    Nom de l'ennemi.
-description : str
-    Description courte.
-current_room : Room
-    Lieu actuel de l'ennemi.
-hp : int
-    Points de vie.
-atk : int
-    Points d'attaque (dégâts bruts).
-loot : Item | None
-    Objet laissé tomber à sa mort (facultatif).
-
-Méthodes
---------
-__str__() -> str
-    Représentation textuelle.
-is_alive() -> bool
-    True si l'ennemi est encore en vie (> 0 PV).
-"""
+from item import Item
 
 class Enemy:
-    """Ennemi basique du jeu."""
+    def __init__(
+        self,
+        name: str,
+        hp: int,
+        atk: int,
+        defense: int,
+        is_boss: bool = False,
+        loot=None,
+        boss=None,         # backward compat if 'boss=' was used
+    ):
+        if boss is not None:
+            is_boss = boss
 
-    def __init__(self, name, description, current_room, hp, atk, loot=None):
         self.name = name
-        self.description = description
-        self.current_room = current_room
         self.hp = hp
         self.atk = atk
-        self.loot = loot
+        self.defense = defense
+        self.is_boss = is_boss
+        self.loot = loot or []  # list[Item]
+
+    def is_alive(self) -> bool:
+        return self.hp > 0
+
+    def take_damage(self, amount: int) -> int:
+        """Return actual damage inflicted (after defense)."""
+        amount = max(0, amount)
+        if amount == 0:
+            dmg = 0
+        else:
+            dmg = max(1, amount - self.defense)
+        self.hp = max(0, self.hp - dmg)
+        return dmg
 
     def __str__(self):
-        return f"{self.name} : {self.description} (PV: {self.hp}, ATK: {self.atk})"
-
-    def is_alive(self):
-        return self.hp > 0
+        return f"{self.name} (HP {self.hp}, ATK {self.atk}, DEF {self.defense})"

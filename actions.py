@@ -1,203 +1,210 @@
 # actions.py
-"""
-Fonctions d'actions appelées par les commandes.
+"""Command callbacks — clean, stable, IA integrated."""
 
-Chaque fonction prend en premier paramètre une instance de Game.
-
-Fonctions
----------
-go(game, direction) -> str
-back(game) -> str
-look(game) -> str
-take(game, item_name) -> str
-drop(game, item_name) -> str
-check(game) -> str
-talk(game, name) -> str
-attack(game, enemy_name) -> str
-show_help(game) -> str
-quit_game(game) -> str
-"""
-
-from item import Item
+from ai_quiz import ask_question, get_ai_status
 
 
 def go(game, direction):
-    """Déplacement dans une direction donnée (N, S, E, W, U, D)."""
+    if game.in_combat:
+        return "❌ Vous ne pouvez pas vous déplacer pendant un combat."
     if not direction:
-        return "Vous devez préciser une direction (N, S, E, W, U, D)."
+        return "Indiquez une direction (N, E, S, O, H, B)."
 
-    direction = direction.upper()
-    current = game.player.current_room
-    next_room = current.get_exit(direction)
-
-    if next_room is None:
+    next_room = game.player.current_room.get_exit(direction)
+    if not next_room:
         return "Vous ne pouvez pas aller par là."
 
     game.player.move_to(next_room)
-    desc = next_room.get_long_description()
-    hist = game.player.get_history()
-    if hist:
-        desc += "\n\n" + hist
-    return desc
+    return game.player.current_room.get_long_description()
 
 
 def back(game):
-    """Revient au lieu précédemment visité."""
-    room = game.player.go_back()
-    if room is None:
-        return "Vous ne pouvez pas revenir en arrière."
-    desc = room.get_long_description()
-    hist = game.player.get_history()
-    if hist:
-        desc += "\n\n" + hist
-    return desc
+    if game.in_combat:
+        return "❌ Vous ne pouvez pas revenir en arrière pendant un combat."
+    if game.player.back():
+        return game.player.current_room.get_long_description()
+    return "Impossible de revenir en arrière."
 
 
 def look(game):
-    """Observe l'environnement (description + objets + PNJ + ennemis)."""
-    room = game.player.current_room
-    desc = room.get_long_description()
-    hist = game.player.get_history()
-    if hist:
-        desc += "\n\n" + hist
-    return desc
+    return game.player.current_room.get_long_description()
 
 
 def take(game, item_name):
-    """Prend un objet présent dans la pièce."""
     if not item_name:
-        return "Vous devez préciser le nom de l'objet à prendre."
+        return "Prendre quoi ?"
 
     room = game.player.current_room
-    # Cherche l'objet dans la pièce
-    for i, item in enumerate(room.inventory):
-        if item.name.lower() == item_name.lower():
-            # Vérifie le poids
-            if not game.player.can_take(item):
-                return (
-                    f"Vous ne pouvez pas prendre '{item.name}': "
-                    "cela dépasserait votre charge maximale."
-                )
-            room.inventory.pop(i)
-            game.player.inventory.append(item)
-            # Quête : cristal de propulsion ?
-            if item.name.lower() == "cristal de propulsion":
-                game.player.has_crystal = True
-            return f"Vous avez pris l'objet '{item.name}'."
-    return f"L'objet '{item_name}' n'est pas présent ici."
+    item = room.find_item(item_name)
+    if not item:
+        return f"Aucun objet nommé '{item_name}' ici."
+
+    room.remove_item(item)
+    game.player.add_item(item)
+    return f"Vous prenez {item.name}."
 
 
 def drop(game, item_name):
-    """Dépose un objet depuis l'inventaire dans la pièce."""
     if not item_name:
-        return "Vous devez préciser le nom de l'objet à déposer."
+        return "Déposer quoi ?"
 
-    inv = game.player.inventory
-    for i, item in enumerate(inv):
-        if item.name.lower() == item_name.lower():
-            inv.pop(i)
-            game.player.current_room.inventory.append(item)
-            # Si on dépose le cristal, on garde has_crystal à True ou False ?
-            # Ici on considère que la quête est validée dès qu'il a été obtenu.
-            return f"Vous avez déposé l'objet '{item.name}'."
-    return f"Vous ne possédez pas l'objet '{item_name}'."
+    item = game.player.find_item(item_name)
+    if not item:
+        return f"Vous ne possédez pas '{item_name}'."
+
+    game.player.remove_item(item)
+    game.player.current_room.add_item(item)
+    return f"Vous déposez {item.name}."
 
 
-def check(game):
-    """Affiche le contenu de l'inventaire du joueur."""
-    return game.player.get_inventory()
-
-
-def talk(game, name):
-    """Parle à un PNJ dans la pièce courante."""
-    if not name:
-        return "Vous devez préciser à qui parler (talk <nom>)."
-
-    room = game.player.current_room
-    for char in room.characters:
-        if char.name.lower() == name.lower():
-            return char.get_msg()
-    return f"Il n'y a ici aucun personnage nommé '{name}'."
-
-
-def attack(game, enemy_name):
-    """Lance un tour de combat contre un ennemi dans la pièce."""
-    if not enemy_name:
-        return "Vous devez préciser quel ennemi attaquer (attack <nom>)."
-
-    room = game.player.current_room
-    enemy = None
-    for e in room.enemies:
-        if e.name.lower() == enemy_name.lower():
-            enemy = e
-            break
-
-    if enemy is None or not enemy.is_alive():
-        return f"Aucun ennemi vivant nommé '{enemy_name}' ici."
-
-    lines = []
-
-    # --- Attaque du joueur ---
-    enemy.hp -= game.player.atk
-    if enemy.hp < 0:
-        enemy.hp = 0
-    lines.append(
-        f"Vous attaquez {enemy.name} et lui infligez {game.player.atk} points de dégâts. "
-        f"(PV restants : {enemy.hp})"
-    )
-
-    # --- Ennemi mort ? ---
-    if not enemy.is_alive():
-        lines.append(f"{enemy.name} s'effondre. Il est vaincu.")
-        # Loot éventuel
-        if enemy.loot is not None:
-            room.inventory.append(enemy.loot)
-            if enemy.loot.name.lower() == "cristal de propulsion":
-                lines.append(
-                    "Dans un ultime sursaut, la créature laisse tomber un Cristal de propulsion !"
-                )
-            else:
-                lines.append(
-                    f"{enemy.name} laisse tomber '{enemy.loot.name}'."
-                )
-        return "\n".join(lines)
-
-    # --- Riposte de l'ennemi ---
-    dmg = max(1, enemy.atk - game.player.defense)
-    game.player.hp -= dmg
-    if game.player.hp < 0:
-        game.player.hp = 0
-    lines.append(
-        f"{enemy.name} riposte et vous inflige {dmg} points de dégâts. "
-        f"(Vos PV : {game.player.hp})"
-    )
-
-    # --- Joueur mort ? ---
-    if game.player.hp <= 0:
-        lines.append("\nVous succombez à vos blessures. Le Vigilant ne repartira jamais...")
-        game.running = False
-
+def inventory(game):
+    if not game.player.inventory:
+        return "Votre inventaire est vide."
+    lines = ["Inventaire :"]
+    lines.append(f"Poids : {game.player.current_weight}")
+    lines.append(f"Poids maximum : {game.player.max_weight}")
+    lines.append("Objets :")
+    for it in game.player.inventory:
+        lines.append(f"- {it.name} ({it.weight} kg)")
     return "\n".join(lines)
 
 
-def show_help(game):
-    """Affiche la liste des commandes disponibles."""
-    return (
-        "Commandes disponibles :\n"
-        "- go <dir>   : se déplacer (N, S, E, W, U, D)\n"
-        "- back       : revenir en arrière\n"
-        "- look       : observer les lieux et les sorties\n"
-        "- take <obj> : prendre un objet\n"
-        "- drop <obj> : déposer un objet\n"
-        "- check      : afficher l'inventaire\n"
-        "- talk <pnj> : parler à un personnage\n"
-        "- attack <e> : attaquer un ennemi\n"
-        "- help       : afficher cette aide\n"
-        "- quit       : quitter le jeu"
-    )
+def check(game, item_name):
+    if not item_name:
+        if not game.player.inventory:
+            return "Votre inventaire est vide."
+        lines = ["Inventaire :"]
+        for it in game.player.inventory:
+            lines.append(f"- {it.name}")
+        return "\n".join(lines)
+
+    item = game.player.find_item(item_name)
+
+    if item:
+        return f"{item.name} : {item.description}"
+
+    lines = [f"'{item_name}' n'est pas dans votre inventaire.", "Inventaire :"]
+    for it in game.player.inventory:
+        lines.append(f"- {it.name}")
+    return "\n".join(lines)
+
+
+def use(game, item_name):
+    if not item_name:
+        return "Utiliser quoi ?"
+
+    item = game.player.find_item(item_name)
+    if not item:
+        return f"Vous ne possédez pas '{item_name}'."
+
+    if not item.usable:
+        return f"Vous ne pouvez pas utiliser '{item.name}'."
+
+    if item.effect_type == "heal":
+        before = game.player.hp
+        game.player.hp = min(game.player.max_hp, before + item.value)
+        game.player.remove_item(item)
+        return f"Vous utilisez {item.name}. HP : {before} → {game.player.hp}"
+
+    if item.effect_type == "def":
+        before = game.player.defense
+        game.player.defense = before + item.value
+        game.player.remove_item(item)
+        return f"Vous utilisez {item.name}. DEF : {before} → {game.player.defense}"
+
+    if item.effect_type == "quest":
+        return f"{item.name} semble important pour votre mission, mais l'utiliser maintenant n'a aucun effet."
+
+    return f"Rien ne se passe lorsque vous utilisez {item.name}."
+
+
+def talk(game, name):
+    if not name:
+        return "Parler à qui ?"
+
+    room = game.player.current_room
+    target = name.lower()
+
+    for npc in room.characters:
+        if npc.name.lower() == target:
+            return npc.talk(game.player, game)
+
+    return f"Il n'y a personne nommé '{name}' ici."
+
+
+def attack(game, enemy_name):
+    if not enemy_name:
+        return "Attaquer qui ?"
+
+    room = game.player.current_room
+    enemy = room.find_enemy(enemy_name)
+    if not enemy:
+        return f"Aucun ennemi nommé '{enemy_name}'."
+    if not enemy.is_alive():
+        return f"{enemy.name} est déjà vaincu."
+
+    game.in_combat = True
+    game.current_enemy = enemy
+
+    multiplier = ask_question(game.player)
+
+    base = max(1, game.player.atk - enemy.defense)
+    dmg = max(1, int(round(base * multiplier)))
+    real = enemy.take_damage(dmg)
+
+    logs = [f"Vous attaquez {enemy.name} et infligez {real} dégâts."]
+
+    if not enemy.is_alive():
+        logs.append(f"{enemy.name} est vaincu.")
+        game.in_combat = False
+        game.current_enemy = None
+
+        if enemy.loot:
+            for it in enemy.loot:
+                if it.name == 'Cristal de propulsion' and game.player.has_crystal:
+                    continue
+                room.add_item(it)
+                logs.append(f"{enemy.name} laisse tomber {it.name}.")
+                if it.name == "Cristal de propulsion":
+                    game.player.has_crystal = True
+
+        if enemy.is_boss:
+            game.player.vorn_defeated = True
+            logs.append("Le Capitaine Vorn s'effondre. Les rebelles envahissent la forteresse !")
+            if game.player.merchant_sacrifice:
+                logs.append(
+                    "Dans le chaos, votre équipier sacrifié est libéré. "
+                    "Votre moral et votre force augmentent."
+                )
+                game.player.moral += 3
+                game.player.atk += 1
+
+        return "\n".join(logs)
+
+    dmg_received = game.player.take_damage(enemy.atk)
+    logs.append(f"{enemy.name} riposte et inflige {dmg_received} dégâts.")
+
+    if not game.player.is_alive():
+        logs.append("Vous êtes mort. Game Over.")
+        game.running = False
+        game.in_combat = False
+        game.current_enemy = None
+
+    return "\n".join(logs)
+
+
+def status(game):
+    return game.player.get_status_string()
+
+
+def history(game):
+    return game.player.get_history_string()
+
+
+def ai_status(game):
+    return get_ai_status(game.player)
 
 
 def quit_game(game):
-    """Met fin au jeu."""
     game.running = False
-    return "Vous quittez le jeu. Le Vigilant reste en orbite silencieuse..."
+    return "Fermeture du jeu..."
