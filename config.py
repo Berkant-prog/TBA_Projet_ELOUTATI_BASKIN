@@ -1,23 +1,39 @@
-# config.py
-# Fichier de configuration : univers, PNJ, ennemis, objets et planètes du jeu.
+"""
+config.py — Contient toutes les données statiques du jeu :
+- textes d’introduction,
+- objets,
+- PNJ,
+- ennemis,
+- rooms (planètes),
+- conditions de victoire.
+
+Ce fichier joue le rôle de base de données du jeu,
+isolant le contenu narratif et les paramètres de gameplay
+du code logique.
+"""
 
 # -----------------------------------------------------------
-# Introduction
+# Introduction du jeu et paramètres généraux
 # -----------------------------------------------------------
 
+# Texte affiché au lancement
 INTRO_TEXT = """
 En 2239, l'ESIEE lance le vaisseau interstellaire 'Vigilant' pour trouver un monde habitable.
 Une onde gravitationnelle inconnue projette l'appareil vers un système lointain.
 Réparez le Vigilant, ralliez des alliés, et décidez du destin de l'humanité.
 """
 
+# Salle de départ du joueur
 START_ROOM = "Eridani Prime"
 
 # -----------------------------------------------------------
-# Objets du jeu
+# Objets du jeu : armes, modules, soins, artefacts
+# Chaque objet possède :
+# - une description,
+# - un type d'effet,
+# - une valeur utilisée dans les calculs de stats.
 # -----------------------------------------------------------
 
-# effect_type ∈ {"atk", "def", "hp", "energie", "moral", "reputation", "key"}
 items_config = {
     "Canon Plasma": {
         "description": "Arme lourde issue du module minier, améliore la puissance de feu.",
@@ -47,7 +63,11 @@ items_config = {
 }
 
 # -----------------------------------------------------------
-# PNJ non hostiles
+# PNJ (Personnages non joueurs)
+# Chaque entrée décrit :
+# - leur alignement (ally/neutral),
+# - un ensemble de dialogues,
+# - un objet éventuellement offert au joueur.
 # -----------------------------------------------------------
 
 pnj_config = {
@@ -78,7 +98,13 @@ pnj_config = {
 }
 
 # -----------------------------------------------------------
-# Ennemis
+# Ennemis : simples ou boss
+# Champs :
+# - hp : points de vie
+# - atk : attaque
+# - defense : défense
+# - is_boss : True si ennemi majeur
+# - loot : objet laissé à la mort
 # -----------------------------------------------------------
 
 enemies_config = {
@@ -113,7 +139,8 @@ enemies_config = {
 }
 
 # -----------------------------------------------------------
-# Planètes / Rooms
+# Planètes (rooms) : description, connexions, PNJ, ennemis, items
+# Chaque room est un lieu explorable par le joueur.
 # -----------------------------------------------------------
 
 rooms_config = {
@@ -148,11 +175,21 @@ rooms_config = {
 }
 
 # -----------------------------------------------------------
-# Conditions de victoire et de défaite
+# Conditions de victoire
+# Chaque condition correspond à une fin différente du jeu.
 # -----------------------------------------------------------
 
 win_conditions = {
-    "renaissance": {"moral_min": 61, "reputation_min": 51},  # fin héroïque
-    "empire": {"moral_max": 39, "reputation_max": 29},       # fin tyrannique
-    "derive": {"hp_max": 0, "energie_max": 19}               # mort ou dérive
+    "renaissance": {
+        "moral_min": 61,
+        "reputation_min": 51  # fin héroïque
+    },
+    "empire": {
+        "moral_max": 39,
+        "reputation_max": 29  # fin tyrannique
+    },
+    "derive": {
+        "hp_max": 0,
+        "energie_max": 19    # dérive ou mort
+    }
 }

@@ -1,5 +1,15 @@
-# game.py
-"""Main game: Vigilant — Chapter I: Eridani Prime."""
+"""
+game.py — Moteur principal du jeu "Vigilant : Chapitre I — Eridani Prime".
+
+Ce module gère :
+- la construction du monde (rooms, PNJ, ennemis, objets),
+- l’introduction narrative et les choix initiaux du joueur,
+- l’état global du jeu (combat, running, ennemi courant),
+- la boucle principale d’interaction,
+- l’exécution des commandes via Command.
+
+Il s’agit de la classe centrale du jeu (le "Game Manager").
+"""
 
 from room import Room
 from item import Item
@@ -10,7 +20,23 @@ from command import Command
 
 
 class Game:
+    """
+    Classe principale orchestrant tout le jeu.
+
+    Attributs :
+        rooms (dict[str, Room]) : toutes les zones explorables.
+        player (Player) : le joueur courant.
+        in_combat (bool) : indique si un combat est en cours.
+        current_enemy (Enemy|None) : ennemi affronté pendant un combat.
+        running (bool) : contrôle la boucle principale du jeu.
+
+    L’initialisation lance automatiquement :
+        - la construction du monde,
+        - l’introduction + le choix dramatique du crash.
+    """
+
     def __init__(self):
+        """Initialise le jeu, construit les rooms et lance l’intro."""
         self.rooms = {}
         self.player = None
         self.in_combat = False
@@ -20,9 +46,23 @@ class Game:
         self._build_world()
         self._intro_and_crash()
 
-    # ================= WORLD BUILDING ===================
+    # =========================================================
+    #   WORLD BUILDING — Construction de l’univers narratif
+    # =========================================================
 
     def _build_world(self):
+        """
+        Crée toutes les pièces (rooms), leurs descriptions, connexions,
+        objets, PNJ et ennemis.
+
+        C’est le “setup” narratif et spatial du Chapitre I :
+        - Eridani Prime
+        - Avant-poste minier
+        - Marché labyrinthique
+        - Cité-forteresse
+
+        Chaque room est connectée Est/Ouest en ligne droite.
+        """
         # Rooms
         eridani = Room(
             "Eridani Prime",
@@ -46,13 +86,12 @@ class Game:
             "C’est ici que le Capitaine Vorn impose son règne."
         )
 
-
-        # Connections (2D: W <-> E)
+        # Connexions spatiales en ligne Est/Ouest
         eridani.connect(avant_poste, "E")
         avant_poste.connect(marche, "E")
         marche.connect(forteresse, "E")
 
-        # Store
+        # Stockage des rooms
         self.rooms = {
             "Eridani Prime": eridani,
             "Avant-poste minier": avant_poste,
@@ -60,7 +99,7 @@ class Game:
             "Cité-forteresse": forteresse,
         }
 
-        # Items
+        # Objet initial (trousse de soin)
         medkit = Item(
             "Trousse Médicale",
             "Une trousse de soin rudimentaire (+25 PV).",
@@ -71,13 +110,18 @@ class Game:
         )
         avant_poste.add_item(medkit)
 
-        # PNJ: Ralen
+        # ------------------------------
+        #  PNJ — dialogues et callbacks
+        # ------------------------------
+
+        # Ralen
         ralen = Character(
             "Ralen",
             "Un citoyen au regard vif malgré les cendres sur son visage."
         )
 
         def talk_ralen(player, game, self_char):
+            """Dialogue dynamique selon si le joueur l’a déjà rencontré."""
             if not player.met_ralen:
                 player.met_ralen = True
                 player.log("Vous avez rencontré Ralen à Eridani Prime.")
@@ -92,13 +136,14 @@ class Game:
         ralen.on_talk = talk_ralen
         eridani.add_character(ralen)
 
-        # PNJ: Ingénieur Malek
+        # Ingénieur Malek
         malek = Character(
             "Ingénieur Malek",
             "Un technicien nerveux qui tente de réparer une foreuse brisée."
         )
 
         def talk_malek(player, game, self_char):
+            """Dialogue variant selon les ressources du joueur."""
             if player.resources >= 3:
                 return (
                     "Malek : Vous avez du matériel ? Parfait. "
@@ -114,19 +159,23 @@ class Game:
         malek.on_talk = talk_malek
         avant_poste.add_character(malek)
 
-        # PNJ: Marchand
+        # Marchand — choix moral central
         marchand = Character(
             "Marchand",
             "Un homme sec, aux yeux calculateurs, entouré de caisses verrouillées."
         )
 
         def talk_marchand(player, game, self_char):
+            """
+            Dialogue crucial : le marchand propose d'échanger
+            un membre d’équipage contre le Cristal de propulsion.
+            """
             if player.merchant_deal_done:
                 if player.merchant_sacrifice:
                     return "Marchand : Les affaires sont les affaires. Profitez bien de votre cristal."
                 if player.merchant_refused:
                     return "Marchand : Vous avez refusé. Je ne traite plus avec vous."
-   #             return "Marchand : Nous n’avons plus rien à négocier."
+                # Version neutre conservée en commentaire
 
             print(
                 "Marchand : J'ai un Cristal de propulsion.\n"
@@ -142,6 +191,8 @@ class Game:
                 player.merchant_sacrifice = True
                 player.moral -= 3
                 player.resources += 2
+
+                # Donne le cristal si le joueur ne l’a pas déjà
                 if not player.has_crystal:
                     cristal = Item(
                         "Cristal de propulsion",
@@ -153,6 +204,7 @@ class Game:
                     )
                     player.add_item(cristal)
                     player.has_crystal = True
+
                 return (
                     "Le marchand sourit et fait emmener un membre de votre équipage.\n"
                     "Vous obtenez le Cristal… mais à quel prix ?"
@@ -171,13 +223,14 @@ class Game:
         marchand.on_talk = talk_marchand
         marche.add_character(marchand)
 
-        # PNJ: Yara
+        # Yara (rebelle)
         yara = Character(
             "Yara",
             "Une femme encapuchonnée, regard déterminé, symbole rebelle au poignet."
         )
 
         def talk_yara(player, game, self_char):
+            """Dialogue change selon progression (rencontre + boss vaincu)."""
             if not player.met_yara:
                 return "Une silhouette encapuchonnée passe fugacement, puis disparaît."
             if not player.vorn_defeated:
@@ -195,10 +248,11 @@ class Game:
         yara.on_talk = talk_yara
         marche.add_character(yara)
 
-        # Enemies
+        # Ennemis
         patrouilleur = Enemy("Patrouilleur de Vorn", hp=40, atk=7, defense=2)
         avant_poste.add_enemy(patrouilleur)
 
+        # Boss final
         vorn = Enemy(
             "Capitaine Vorn",
             hp=85,
@@ -218,9 +272,20 @@ class Game:
         )
         forteresse.add_enemy(vorn)
 
-    # ================= INTRO & CRASH ====================
+    # =========================================================
+    #   INTRODUCTION + CHOIX DRAMATIQUE DU CRASH
+    # =========================================================
 
     def _intro_and_crash(self):
+        """
+        Affiche l’introduction narrative et demande au joueur
+        de faire un choix moral déterminant :
+            - sauver l’équipage,
+            - ou sauver les ressources.
+
+        Ce choix modifie les statistiques du joueur
+        et oriente sa relation au monde.
+        """
         print("En 2239, l'ESIEE lance le vaisseau interstellaire 'Vigilant' pour trouver un monde habitable.")
         print("Une onde gravitationnelle inconnue projette l'appareil vers un système lointain.")
         print("Réparez le Vigilant, ralliez des alliés, et décidez du destin de l'humanité.\n")
@@ -243,6 +308,7 @@ class Game:
         while choix not in ("1", "2"):
             choix = input("> ").strip()
 
+        # Le traducteur (toujours donné, mais interprété différemment)
         translator = Item(
             "Puce neuronale traductrice",
             "Implant qui traduit en temps réel les langues d’Eridani.",
@@ -254,6 +320,7 @@ class Game:
         self.player.add_item(translator)
         self.player.has_translator = True
 
+        # Effets du choix initial
         if choix == "1":
             self.player.moral += 2
             self.player.atk += 1
@@ -264,7 +331,8 @@ class Game:
             self.player.defense += 3
             self.player.resources += 4
             self.player.moral -= 2
-            # Création de l'item spécial obtenu lorsque le joueur sauve les ressources
+
+            # Objet bonus propre à ce choix
             module = Item(
                 "Module d'énergie stabilisé",
                 "Un module récupéré intact dans les soutes. "
@@ -272,7 +340,7 @@ class Game:
                 effect_type="def",
                 value=2,
                 usable=True,
-                weight=2, 
+                weight=2,
             )
             self.player.add_item(module)
 
@@ -280,27 +348,38 @@ class Game:
             print("\nCependant, il vous reste quelques survivants.")
             print("➡️ La puce neuronale d’un officier vous sert désormais de traducteur.")
             print("➡️ Vous récupérez des modules, de l’énergie et des pièces intactes…")
-            print("➡️ Vous récupérez un Module d'énergie stabilisé dans les décombres.")
-            print("   Ce composant expérimental renforcera temporairement votre défense.")
-            print("…mais aucun Cristal de propulsion n’a survécu au crash.\n")
+            print("➡️ Vous récupérez un Module d'énergie stabilisé dans les décombres.\n")
 
+        # Affichage de la room initiale et de l’aide
         print(self.player.current_room.get_long_description())
         print(self.help_text() + "\n")
-        
-    # =================== HELP TEXT ======================
+
+    # =========================================================
+    #   HELP TEXT — Commandes disponibles
+    # =========================================================
+
     def help_text(self):
+        """Retourne la liste des commandes disponibles pour affichage permanent."""
         return (
             "Commandes disponibles :\n"
-            "g : aller <direction> | retour | o : observer | p : prendre <objet> | j : jeter <objet> | i : inventaire | e : examiner <objet> |\n"    
+            "g : aller <direction> | retour | o : observer | p : prendre <objet> | j : jeter <objet> | i : inventaire | e : examiner <objet> |\n"
             "t : parler <nom> | a : attaquer <ennemi> | u : utiliser <objet> | s : statut | h : historique | ia | q : quitter"
-        
         )
 
-
-
-    # ================== MAIN LOOP =======================
+    # =========================================================
+    #   MAIN LOOP — Boucle de jeu
+    # =========================================================
 
     def play(self):
+        """
+        Lance la boucle principale du jeu :
+        - lit une commande utilisateur,
+        - la transmet à Command(),
+        - affiche le résultat,
+        - puis réaffiche l’aide.
+
+        La boucle continue tant que self.running == True.
+        """
         while self.running:
             try:
                 cmd_line = input("> ")
@@ -313,11 +392,11 @@ class Game:
             if output:
                 print(output)
 
-            # 🔥 AFFICHER LES COMMANDES APRÈS CHAQUE ACTION
+            # Affiche toujours les commandes après chaque action
             print("\n" + self.help_text() + "\n")
 
 
-
+# Point d’entrée du programme
 if __name__ == "__main__":
     g = Game()
     g.play()

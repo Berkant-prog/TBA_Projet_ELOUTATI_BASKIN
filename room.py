@@ -1,30 +1,54 @@
-# room.py
-"""Room class for the Vigilant TBA game."""
+"""
+room.py — Définition des salles du jeu.
+
+Une Room représente un lieu exploré par le joueur :
+- elle possède un nom et une description narrative,
+- des sorties (N/S/E/O/H/B) vers d’autres salles,
+- des objets au sol,
+- des personnages (PNJ),
+- des ennemis potentiels.
+
+Ce module sert de base à la structure de la carte du monde.
+"""
+
 
 class Room:
+    """Représente une salle ou un lieu de l'univers du jeu."""
+
     def __init__(self, name, description):
+        """
+        Initialise une salle.
+
+        Paramètres :
+            name (str)         — nom du lieu
+            description (str)  — texte narratif affiché au joueur
+        """
         self.name = name
         self.description = description
 
-        # Exits = {"N": room, "E": room, ...}
+        # Exits : dictionnaire direction → Room
         self.exits = {}
 
-        # Content of the room
+        # Contenu du lieu
         self.items = []
         self.characters = []
         self.enemies = []
 
     # ============================================================
-    # CONNECTIONS
+    # Connexions entre salles
     # ============================================================
+
     def connect(self, other_room, direction):
         """
-        Connect two rooms bidirectionally.
-        direction: 'N', 'E', 'S', 'O', 'H', 'B'
+        Connecte deux salles de manière bidirectionnelle.
+
+        direction : 'N', 'E', 'S', 'O', 'H', 'B'
+
+        Exemple : salleA.connect(salleB, "E")
+        créera automatiquement la connexion salleB → salleA vers "O".
         """
         self.exits[direction.upper()] = other_room
 
-        # Create reverse link
         reverse = {
             "N": "S",
             "S": "N",
@@ -38,20 +62,25 @@ class Room:
             other_room.exits[reverse[direction.upper()]] = self
 
     def get_exit(self, direction):
+        """Retourne la salle associée à une direction donnée, ou None."""
         direction = direction.upper()
         return self.exits.get(direction, None)
 
     # ============================================================
-    # ITEMS
+    # Gestion des objets
     # ============================================================
+
     def add_item(self, item):
+        """Dépose un objet dans la salle."""
         self.items.append(item)
 
     def remove_item(self, item):
+        """Retire un objet présent dans la salle."""
         if item in self.items:
             self.items.remove(item)
 
     def find_item(self, name):
+        """Recherche un objet par nom, insensible à la casse."""
         name = name.lower()
         for it in self.items:
             if it.name.lower() == name:
@@ -59,12 +88,15 @@ class Room:
         return None
 
     # ============================================================
-    # CHARACTERS (NPC)
+    # PNJ (personnages non-joueurs)
     # ============================================================
+
     def add_character(self, character):
+        """Ajoute un PNJ à la salle."""
         self.characters.append(character)
 
     def find_character(self, name):
+        """Recherche un PNJ par son nom."""
         name = name.lower()
         for c in self.characters:
             if c.name.lower() == name:
@@ -72,12 +104,18 @@ class Room:
         return None
 
     # ============================================================
-    # ENEMIES
+    # Ennemis
     # ============================================================
+
     def add_enemy(self, enemy):
+        """Ajoute un ennemi à la salle."""
         self.enemies.append(enemy)
 
     def find_enemy(self, name):
+        """
+        Recherche un ennemi vivant dans la salle.
+        Retourne None si l’ennemi n'existe pas ou est déjà vaincu.
+        """
         name = name.lower()
         for e in self.enemies:
             if e.name.lower() == name and e.is_alive():
@@ -85,20 +123,21 @@ class Room:
         return None
 
     # ============================================================
-    # DESCRIPTION
+    # Description longue
     # ============================================================
+
     def get_exit_string(self):
+        """Retourne toutes les sorties avec le nom des salles reliées."""
         if not self.exits:
             return "Aucune sortie."
 
-        # Conversion directions EN -> FR
         dir_fr = {
             "N": "N",
             "S": "S",
             "E": "E",
-            "O": "O",   # ← important : W devient O pour Ouest
-            "H": "H",   # Haut
-            "B": "B",   # Bas
+            "O": "O",
+            "H": "H",
+            "B": "B",
         }
 
         lines = ["Sorties :"]
@@ -108,10 +147,15 @@ class Room:
 
         return "\n".join(lines)
 
-
-
-
     def get_long_description(self):
+        """
+        Retourne une description détaillée :
+        - texte narratif,
+        - PNJ,
+        - ennemis vivants,
+        - objets,
+        - sorties.
+        """
         desc = f"== {self.name} ==\n{self.description}\n"
         
         if self.characters:
@@ -125,4 +169,3 @@ class Room:
 
         desc += self.get_exit_string()
         return desc
-

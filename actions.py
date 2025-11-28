@@ -1,10 +1,21 @@
-# actions.py
-"""Command callbacks — clean, stable, IA integrated."""
+"""
+actions.py — Contient toutes les actions réalisables par le joueur.
+
+Ce module regroupe les fonctions principales appelées par l'interpréteur
+de commandes du jeu (déplacements, combat, inventaire, interactions PNJ,
+utilisation d'objets, etc.).
+Les actions interagissent avec l'état du joueur, des salles et du jeu.
+"""
 
 from ai_quiz import ask_question, get_ai_status
 
 
+# ======================
+#       DEPLACEMENT
+# ======================
+
 def go(game, direction):
+    """Permet au joueur d'aller dans une direction donnée s'il est hors combat."""
     if game.in_combat:
         return "❌ Vous ne pouvez pas vous déplacer pendant un combat."
     if not direction:
@@ -19,6 +30,7 @@ def go(game, direction):
 
 
 def back(game):
+    """Permet au joueur de revenir à la salle précédente si possible."""
     if game.in_combat:
         return "❌ Vous ne pouvez pas revenir en arrière pendant un combat."
     if game.player.back():
@@ -26,11 +38,21 @@ def back(game):
     return "Impossible de revenir en arrière."
 
 
+# ======================
+#        OBSERVER
+# ======================
+
 def look(game):
+    """Retourne une description complète de la salle actuelle."""
     return game.player.current_room.get_long_description()
 
 
+# ======================
+#     GESTION OBJETS
+# ======================
+
 def take(game, item_name):
+    """Permet au joueur de ramasser un objet présent dans la salle."""
     if not item_name:
         return "Prendre quoi ?"
 
@@ -45,6 +67,7 @@ def take(game, item_name):
 
 
 def drop(game, item_name):
+    """Permet au joueur de déposer un objet dans la salle."""
     if not item_name:
         return "Déposer quoi ?"
 
@@ -58,6 +81,7 @@ def drop(game, item_name):
 
 
 def inventory(game):
+    """Affiche le contenu complet de l'inventaire du joueur, avec poids et limite."""
     if not game.player.inventory:
         return "Votre inventaire est vide."
     lines = ["Inventaire :"]
@@ -70,6 +94,7 @@ def inventory(game):
 
 
 def check(game, item_name):
+    """Affiche la description d'un objet de l'inventaire."""
     if not item_name:
         if not game.player.inventory:
             return "Votre inventaire est vide."
@@ -90,6 +115,7 @@ def check(game, item_name):
 
 
 def use(game, item_name):
+    """Utilise un objet de l'inventaire (soin, défense ou objet de quête)."""
     if not item_name:
         return "Utiliser quoi ?"
 
@@ -100,25 +126,33 @@ def use(game, item_name):
     if not item.usable:
         return f"Vous ne pouvez pas utiliser '{item.name}'."
 
+    # Objet de soin
     if item.effect_type == "heal":
         before = game.player.hp
         game.player.hp = min(game.player.max_hp, before + item.value)
         game.player.remove_item(item)
         return f"Vous utilisez {item.name}. HP : {before} → {game.player.hp}"
 
+    # Bonus de défense
     if item.effect_type == "def":
         before = game.player.defense
         game.player.defense = before + item.value
         game.player.remove_item(item)
         return f"Vous utilisez {item.name}. DEF : {before} → {game.player.defense}"
 
+    # Objet lié à une quête
     if item.effect_type == "quest":
         return f"{item.name} semble important pour votre mission, mais l'utiliser maintenant n'a aucun effet."
 
     return f"Rien ne se passe lorsque vous utilisez {item.name}."
 
 
+# ======================
+#     INTERACTION PNJ
+# ======================
+
 def talk(game, name):
+    """Permet au joueur de discuter avec un PNJ présent dans la salle."""
     if not name:
         return "Parler à qui ?"
 
@@ -132,7 +166,12 @@ def talk(game, name):
     return f"Il n'y a personne nommé '{name}' ici."
 
 
+# ======================
+#        COMBAT
+# ======================
+
 def attack(game, enemy_name):
+    """Lance un combat contre un ennemi présent dans la salle."""
     if not enemy_name:
         return "Attaquer qui ?"
 
@@ -146,6 +185,7 @@ def attack(game, enemy_name):
     game.in_combat = True
     game.current_enemy = enemy
 
+    # Le multiplicateur dépend d'une question IA (système de quiz)
     multiplier = ask_question(game.player)
 
     base = max(1, game.player.atk - enemy.defense)
@@ -154,11 +194,13 @@ def attack(game, enemy_name):
 
     logs = [f"Vous attaquez {enemy.name} et infligez {real} dégâts."]
 
+    # Ennemis vaincus
     if not enemy.is_alive():
         logs.append(f"{enemy.name} est vaincu.")
         game.in_combat = False
         game.current_enemy = None
 
+        # Loot
         if enemy.loot:
             for it in enemy.loot:
                 if it.name == 'Cristal de propulsion' and game.player.has_crystal:
@@ -168,6 +210,7 @@ def attack(game, enemy_name):
                 if it.name == "Cristal de propulsion":
                     game.player.has_crystal = True
 
+        # Boss final du monde 1
         if enemy.is_boss:
             game.player.vorn_defeated = True
             logs.append("Le Capitaine Vorn s'effondre. Les rebelles envahissent la forteresse !")
@@ -181,6 +224,7 @@ def attack(game, enemy_name):
 
         return "\n".join(logs)
 
+    # Contre-attaque ennemie
     dmg_received = game.player.take_damage(enemy.atk)
     logs.append(f"{enemy.name} riposte et inflige {dmg_received} dégâts.")
 
@@ -193,18 +237,30 @@ def attack(game, enemy_name):
     return "\n".join(logs)
 
 
+# ======================
+#     INFORMATIONS
+# ======================
+
 def status(game):
+    """Retourne l'état complet du joueur (HP, ATK, DEF, moral, poids, etc.)."""
     return game.player.get_status_string()
 
 
 def history(game):
+    """Retourne l'historique des actions importantes effectuées par le joueur."""
     return game.player.get_history_string()
 
 
 def ai_status(game):
+    """Retourne l'état actuel du module IA (quiz / bonus)."""
     return get_ai_status(game.player)
 
 
+# ======================
+#       SYSTEME
+# ======================
+
 def quit_game(game):
+    """Stoppe la boucle principale du jeu et quitte la partie."""
     game.running = False
     return "Fermeture du jeu..."
