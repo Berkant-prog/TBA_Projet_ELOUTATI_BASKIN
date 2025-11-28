@@ -1,247 +1,189 @@
-# 🌍 **THE STELLAR REBELLION — Chroniques d’ESIEE**
+# 🌌 **THE STELLAR REBELLION — Voyage du *Vigilant***
 
-## 🎬 Présentation du jeu
+## 🚀 Présentation générale
 
-En 2239, la Terre est ravagée par le réchauffement climatique.
-L’école **ESIEE Paris**, dernier bastion de la connaissance scientifique, conçoit le vaisseau ***Vigilant***, destiné à découvrir une nouvelle planète habitable pour sauver l’humanité.
+**The Stellar Rebellion** est un jeu d’aventure textuel développé en Python dans le cadre du cours TBA (ESIEE Paris).
+Le joueur incarne un membre de l’équipage du vaisseau scientifique **Vigilant**, conçu pour offrir à l’humanité une nouvelle planète habitable après la destruction de la Terre.
 
-Mais une onde gravitationnelle inconnue frappe le vaisseau peu après son départ.
-Son capitaine, **Orion Vale**, se réveille seul, échoué sur un monde inconnu.
-Pour survivre et réparer le *Vigilant*, il devra **aider les peuples extraterrestres**, comprendre leurs civilisations et **rallier leurs forces** pour affronter les vestiges d’un empire humain déchu.
+Une anomalie gravitationnelle interrompt le voyage :
+le Vigilant s’écrase sur une planète inconnue, déclenchant une série de choix, de dilemmes moraux et de combats à travers **quatre mondes** du Système Epsilon.
 
-Le joueur incarne **le Commandant Orion Vale** et doit explorer plusieurs planètes, effectuer des choix moraux, combattre, récupérer des ressources et **décider du destin de l’humanité**.
+Le but du jeu est de :
 
----
-
-## 🧭 Objectif du jeu
-
-* Explorer les 4 planètes principales (Eridani Prime, Velyra IX, Lumae Delta, Kaos-7).
-* Aider ou trahir leurs habitants.
-* Améliorer le vaisseau *Vigilant* (attaque, défense, énergie).
-* Gérer vos **statistiques** :
-
-  * **HP** (santé)
-  * **ATK** (attaque)
-  * **DEF** (défense)
-  * **ÉNERGIE** (carburant / ressources)
-  * **MORAL** (cohésion)
-  * **RÉPUTATION** (image publique)
-* Décrocher **l’une des 4 fins possibles** selon vos choix.
+* survivre,
+* explorer des villes hostiles,
+* recruter des alliés,
+* gérer ses ressources,
+* améliorer le Vigilant,
+* et enfin **sauver l’humanité**.
 
 ---
 
-## 🕹️ Commandes principales
+# 🧭 Objectifs du jeu
 
-| Commande            | Effet                                               |
-| ------------------- | --------------------------------------------------- |
-| `explorer`          | Décrit la zone actuelle et révèle objets/PNJ.       |
-| `parler <nom>`      | Dialogue avec un personnage.                        |
-| `prendre <objet>`   | Ajoute un objet à l’inventaire.                     |
-| `utiliser <objet>`  | Applique l’effet de l’objet.                        |
-| `attaquer <ennemi>` | Lance un combat.                                    |
-| `inventaire`        | Affiche les objets possédés.                        |
-| `historique`        | Montre les choix passés.                            |
-| `aller <direction>` | Se déplace vers une autre planète ou zone.          |
-| `statut`            | Affiche les valeurs HP, énergie, moral, réputation. |
-| `quitter`           | Met fin à la partie.                                |
+* Explorer 4 mondes : **Eridani Prime → Velyra IX → Aurelion Prime → Nova Terra**
+* Prendre des décisions influençant le moral, l’attaque, la défense et les ressources.
+* Combattre des ennemis via un système de combat simple mais stratégique.
+* Récupérer des objets essentiels (ex : cristal de propulsion).
+* Reconstruire le Vigilant et mener la rébellion interplanétaire.
 
 ---
 
-## 🧠 Système de progression
+# ⚙️ Mécaniques principales
 
-| Élément        | Description                                                     |
-| -------------- | --------------------------------------------------------------- |
-| **HP**         | Points de vie du joueur. Si 0 → fin du jeu.                     |
-| **ÉNERGIE**    | Requise pour voyager et interagir avec certaines machines.      |
-| **MORAL**      | Diminue si le joueur agit égoïstement. Influence les dialogues. |
-| **RÉPUTATION** | Influence les réactions des PNJ et les fins possibles.          |
-| **ATK / DEF**  | Modifiables via objets et alliés. Affectent les combats.        |
+## **Statistiques du joueur**
 
----
+* **HP** — Santé
+* **ATK** — Puissance d’attaque
+* **DEF** — Défense
+* **MORAL** — Impacte les dialogues et certains embranchements
+* **RESSOURCES** — Énergie / matériel utile pour réparer le Vigilant
+* **INVENTAIRE** — Objets collectés (avec descriptions)
 
-## ⚔️ Système de combat (simplifié)
+## **Système de combat**
 
-* Le joueur et l’ennemi alternent les tours.
-* Les dégâts sont calculés selon la formule :
-  **dégâts = ATK - DEF adverse (min. 0)**
-* Le combat s’arrête à la mort d’un des deux adversaires ou en cas de fuite.
-* Certains ennemis donnent un **objet** ou un **allié** après leur défaite.
+* Tour par tour
+* Dégâts = ATK - DEF adverse (minimum 0)
+* Les ennemis peuvent lâcher des objets
 
----
+## **Interactions**
 
-## 🪐 Univers du jeu
-
-| Planète           | Thème                    | PNJ clé      | Boss             | Récompense                           |
-| ----------------- | ------------------------ | ------------ | ---------------- | ------------------------------------ |
-| **Eridani Prime** | Oppression et rébellion  | Yara         | Capitaine Vorn   | Canon Plasma, Yara (+moral, défense) |
-| **Velyra IX**     | IA et conscience         | Tzenn        | Drone MK-V       | IA embarquée (+énergie, moral)       |
-| **Lumae Delta**   | Illusion et spiritualité | Moine Zekh   | Gardien Spectral | Clé Astrale (+réputation)            |
-| **Kaos-7**        | Pouvoir et loyauté       | Général Kael | Kael lui-même    | Alliance ou tyrannie                 |
+* PNJ
+* Objets à ramasser
+* Déplacements entre zones
+* Choix narratifs persistants
+* IA Quiz (système optionnel)
 
 ---
 
-## 🏁 Fins possibles
+# 🗺️ Les 4 Mondes (Version Résumée & Professionnelle)
 
-| Fin                        | Condition                     | Description                                           |
-| -------------------------- | ----------------------------- | ----------------------------------------------------- |
-| 🌱 **Renaissance d’ESIEE** | moral > 60 et reputation > 50 | Orion unifie les planètes et fonde la Nouvelle Terre. |
-| ⚔️ **Empire d’Orion**      | moral < 40 et reputation < 30 | Orion sauve l’humanité mais devient despote.          |
-| 🌌 **Écho du Néant**       | énergie < 20 ou hp ≤ 0        | Le *Vigilant* dérive dans le vide.                    |
-| ⚖️ **Fin Ambiguë**         | autres cas                    | Orion disparaît. Légende ou oubli ?                   |
+## 🌑 **MONDE 1 — ERIDANI PRIME : Oppression et rébellion**
+
+Première planète du jeu, monde minier sous le contrôle du **Capitaine Vorn**.
+
+Points centraux :
+
+* Crash du Vigilant
+* Premier dilemme : sauver l’équipage ou les ressources
+* Découverte d’un avant-poste minier, d’un marché et d’une cité-forteresse
+* Interaction avec **Ralen** et **Yara**, la cheffe rebelle
+* Quête du **cristal de propulsion**
+* Boss final : **Vorn**
+
+Le joueur répare partiellement le vaisseau et quitte la planète.
 
 ---
 
-## 💻 Guide développeur
+## 🔧 **MONDE 2 — VELYRA IX : Le Masque du Progrès**
 
-### 🧩 Structure des fichiers
+Planète cybernétique dirigée par **Karn**, utilisant IA et drones pour contrôler la population.
+
+Points centraux :
+
+* Attaque immédiate OU infiltration stratégique
+* Prison principale où est emprisonné **Narek**, frère de Yara
+* Dilemme majeur : voler les civils ou corrompre un général
+* Missiles régionaux, IA militaire, documents secrets
+* Boss final : **Karn**, en exo-armure
+
+La planète est libérée et le Vigilant obtient une avancée technologique majeure.
+
+---
+
+## 🌀 **MONDE 3 — AURELION PRIME : Le Jardin du Mensonge**
+
+Cité parfaite, luxueuse, mais entièrement basée sur la manipulation émotionnelle.
+
+Points centraux :
+
+* Choix crucial : infiltration silencieuse ou révélation publique
+* Découverte du **Nœud**, système de contrôle émotionnel
+* Deux voies : briser les illusions ou infiltrer les souterrains
+* Boss final : **Seren Taal**, ancienne capitaine du Vigilant devenue tyran
+
+La chute de Seren Taal unit les planètes rebelles.
+
+---
+
+## 🌍 **MONDE 4 — NOVA TERRA : Le Monde Promis**
+
+Dernière planète, habitable et fertile — destination originelle du Vigilant.
+
+Points centraux :
+
+* Exploration d’une station orbitale antique (optionnelle)
+* Atterrissage sur un monde paradisiaque
+* Serments des peuples unis : Eridani, Velyra, Aurelion
+* Dernier choix : devenir dirigeant… ou refuser le pouvoir
+
+Fin : **renaissance de l’humanité sur Nova Terra**.
+
+---
+
+# 🕹️ Commandes du jeu
+
+| Commande            | Description             |
+| ------------------- | ----------------------- |
+| `observer`          | Décrit la zone actuelle |
+| `aller <direction>` | Se déplacer (N/S/E/O)   |
+| `retour`            | Déplace zone précédente |
+| `prendre <objet>`   | Ramasser un objet       |
+| `jeter <objet>`     | jette un objet          |
+| `utiliser <objet>`  | Utiliser un objet       |
+| `inventaire`        | Afficher l’inventaire   |
+| `parler <nom>`      | Parler à un PNJ         |
+| `attaquer <ennemi>` | Lancer un combat        |
+| `examiner <objet>`  | Examiner un objet       |
+| `quitter`           | Quitter le jeu          |
+| `ai`                | Stats de réponses       |
+| `historique`        | Affiche l'historique    |
+| `statut`            | Affiche les pv, atk...  |
+
+
+---
+
+# 📁 Structure du projet
 
 ```
 TBA_StellarRebellion/
 │
-├── game.py           # Boucle principale du jeu
-├── config.py         # Données : planètes, objets, ennemis, dialogues
-├── actions.py        # Fonctions : explorer, parler, attaquer, etc.
-├── command.py        # Parsing et exécution des commandes
-├── player.py         # Gestion du joueur et de ses stats
-├── character.py      # Base des personnages (PNJ)
-├── enemy.py          # Gestion des ennemis et des combats
-├── item.py           # Objets et effets
-├── room.py           # Représentation des planètes
-├── win.py            # Conditions de victoire / défaite
-├── test.py           # Tests automatiques
-└── README.md
+├── game.py          # Boucle principale
+├── actions.py       # Actions joueur : regarder, parler, attaquer, etc.
+├── command.py       # Parsing de commandes
+├── room.py          # Salles / zones
+├── player.py        # Stats et inventaire
+├── enemy.py         # Système de combat
+├── item.py          # Objets & descriptions
+├── character.py     # PNJ
+├── config.py        # Définition du monde 1 (villes)
+└── ai_quiz.py       # Module d’IA optionnel
 ```
 
 ---
 
-### 🧬 Diagramme de classes (Mermaid)
+# 📌 Perspectives d’évolution
 
-```mermaid
-classDiagram
-    class Game {
-        -Player player
-        -Room current_room
-        +start_game()
-        +game_loop()
-        +process_command()
-        +check_win_conditions()
-    }
-
-    class Command {
-        -string raw_input
-        -string verb
-        -string target
-        +parse()
-        +execute(game)
-    }
-
-    class Player {
-        -int hp
-        -int atk
-        -int defense
-        -int energie
-        -int moral
-        -int reputation
-        -list inventory
-        -list allies
-        +move_to(room)
-        +update_stats()
-        +take_damage()
-        +use_item()
-        +show_inventory()
-    }
-
-    class Character {
-        -string name
-        -string alignment
-        -list dialogues
-        +talk(player)
-        +interact()
-    }
-
-    class Enemy {
-        -int hp
-        -int atk
-        -int defense
-        -bool is_boss
-        +attack(player)
-        +take_damage()
-        +drop_loot()
-    }
-
-    class Item {
-        -string name
-        -string effect_type
-        -int value
-        +use(player)
-        +inspect()
-    }
-
-    class Room {
-        -string name
-        -string description
-        -list items
-        -list pnj
-        -dict connected_rooms
-        +describe()
-        +get_enemy()
-    }
-
-    Character <|-- Enemy
-    Game --> Player
-    Game --> Room
-    Game --> Command
-    Command --> Actions
-    Player --> Item
-    Player --> Room
-```
+* Ajout des mondes 2, 3 et 4 dans le code
+* Sauvegarde/chargement de partie
+* Interface graphique
+* Effets sonores
 
 ---
 
-## 🔬 Tests unitaires
+# 🏫 Crédits
 
-* **`test_combat()`** → vérifie les calculs de dégâts et la victoire.
-* **`test_items()`** → valide l’application des bonus d’objet.
-* **`test_navigation()`** → contrôle les déplacements entre planètes.
-* **`test_inventory()`** → teste l’ajout et la suppression d’objets.
-* **`test_endings()`** → simule les fins du jeu selon les variables.
-
----
-
-## 🚀 Perspectives d’évolution
-
-* Interface graphique (Tkinter ou PyQt).
-* Musiques d’ambiance spatiales.
-* Sauvegarde / chargement de partie.
-* Exploration aléatoire entre planètes secondaires.
-* PNJ secondaires avec mini-quêtes.
-* Dialogue interactif à choix multiples.
-* Éditeur d’univers pour créer vos propres planètes ESIEEverse 🌌.
-
----
-
-## 🎥 Vidéo de démonstration (3 min)
-
-La vidéo devra montrer :
-
-* L’écran d’accueil.
-* Une exploration complète d’une planète.
-* Un combat commenté.
-* Une interaction avec un PNJ.
-* Une fin (victoire ou échec).
-
-*(Exemples de capture via OBS Studio — résolution 1080p, voix facultative mais conseillée.)*
-
----
-
-## 🏫 Crédits
-
-Projet réalisé dans le cadre du **cours Python TBA** à **l’ESIEE Paris**.
-**Binôme :** BASKIN Berkant (création du dépôt GitHub) & El OUTATI Saad (collaborateur).
-**Enseignant :** *M. Courivaud*
+Projet développé dans le cadre des Travaux Pratiques TBA — **ESIEE Paris**
+**Auteurs :** Berkant Baskin & Saad El Outati
 **Année :** 2025
 
 ---
 
-Souhaites-tu que je te fasse la **version Markdown prête à coller directement** dans ton dépôt (avec mise en forme stylée + emojis et titres bien calibrés pour GitHub) ?
-→ Cela donnerait un rendu très professionnel et lisible sur la page du projet.
+# 🚀 FIN
+
+Le Vigilant est prêt.
+Le Système Epsilon attend son capitaine.
+
+---
+
+
