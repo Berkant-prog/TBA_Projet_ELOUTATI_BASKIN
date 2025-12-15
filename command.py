@@ -27,7 +27,7 @@ from actions import (
     quit_game,
     check, 
     cheat,
-    analyze
+    analyze, 
 )
 
 
@@ -92,7 +92,7 @@ class Command:
                 "utiliser", "use", "u",
                 "statut", "status", "s",
                 "ia", "inventory", "inventaire",
-                "check", "examiner" "analyze", "b",
+                "check", "examiner", "analyze", "b",
             }
             if v not in allowed:
                 return (
@@ -125,6 +125,7 @@ class Command:
             return inventory(game)
         if v in ("examiner", "check", "e"):
             return check(game, a)
+     
 
         # -----------------------------
         #  PNJ
