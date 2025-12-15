@@ -27,10 +27,10 @@ class Player:
         self.name = name
 
         # --- Statistiques de base ---
-        self.hp = 100
-        self.max_hp = 100
-        self.atk = 15
-        self.defense = 3
+        self.hp = 120
+        self.max_hp = 120
+        self.atk = 14
+        self.defense = 4    
         self.moral = 0
         self.resources = 0
         self.reputation = 0
@@ -42,12 +42,15 @@ class Player:
 
         # --- Position & historique ---
         self.current_room = start_room
-        self._room_history = []   # pile des salles traversées ("retour")
+        self._room_history = [start_room]   # pile des salles traversées ("retour")
         self._event_log = []      # journal textuel des actions importantes
 
         # --- Monde 1 : Eridani Prime ---
         self.has_translator = False
         self.has_crystal = False
+        
+        self.attack_patrouilleur_done = False
+        self.attack_vorn_done = False
 
         self.merchant_deal_done = False
         self.merchant_sacrifice = False
@@ -58,14 +61,14 @@ class Player:
         self.vorn_defeated = False
         
         
-        self.world2_started = False
-        self.velyra_intro_done = False
         
         # --- Monde 2 : Velyra IX ---
         # Étapes de la campagne
+        self.world2_started = False
         self.velyra_intro_done = False
-        self.velyra_surprise_done = False
-
+        self.attack_drone_done = False
+        self.attack_sentinel_done = False
+        self.attack_karn_done = False
 
         # Choix stratégiques
         self.velyra_study_first = False      # Étudier la planète d’abord
@@ -84,24 +87,36 @@ class Player:
         
         # --- Monde 3 : Aurelion Prime ---
         self.world3_started = False
-
         self.ap_choice_infiltrate = False
         self.ap_choice_reveal = False
-
+        self.ap_taal_ending_done = False
         self.ap_break_illusions = False
         self.ap_keep_illusions = False
+        
+        self.attack_holo_done = False
+        self.attack_guardian_done = False
+        self.attack_seren_done = False
 
         self.ap_cleared_node = False
 
         self.ap_taal_confronted = False
         self.ap_taal_dead = False
         self.ap_taal_alliance = False
+        
+        # --- Monde 4 : Nova Terra ---
+        self.world4_started = False
+        self.novaterra_explored_station = False
+        self.novaterra_choice_harmony = False
+        self.novaterra_choice_domination = False
+        self.novaterra_choice_renounce = False
+        self.novaterra_final_done = False
+        self.attack_terra_done = False
+
 
         
         # --- Statistiques IA ---
         self.ia_correct = 0
         self.ia_wrong = 0
-        self.ia_questions_answered = 0
 
     # ============================================================
     # Déplacements
@@ -128,6 +143,8 @@ class Player:
             False — sinon.
         """
         if not self._room_history:
+            return False
+        if self.current_room.world != self._room_history[-1].world:
             return False
         self.current_room = self._room_history[-1]
         self.log(f"Vous êtes retourné en arrière à {self.current_room.name}.")
@@ -206,5 +223,6 @@ class Player:
         return (
             f"{self.name} — PV {self.hp}/{self.max_hp} | "
             f"ATK {self.atk} | DEF {self.defense} | "
-            f"Moral {self.moral} | Ressources {self.resources}"
+            f"Moral {self.moral} | Réputation {self.reputation} | "
+            f"Ressources {self.resources}"
         )
