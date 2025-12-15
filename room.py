@@ -15,7 +15,7 @@ Ce module sert de base à la structure de la carte du monde.
 class Room:
     """Représente une salle ou un lieu de l'univers du jeu."""
 
-    def __init__(self, name, description):
+    def __init__(self, name, description, world):
         """
         Initialise une salle.
 
@@ -25,6 +25,7 @@ class Room:
         """
         self.name = name
         self.description = description
+        self.world = world   # Monde auquel appartient la salle (1 à 4)
 
         # Exits : dictionnaire direction → Room
         self.exits = {}
@@ -111,11 +112,6 @@ class Room:
     # ============================================================
     # Ennemis
     # ============================================================
-
-    def add_enemy(self, enemy):
-        """Ajoute un ennemi à la salle."""
-        self.enemies.append(enemy)
-
     def find_enemy(self, name):
         """
         Recherche un ennemi vivant dans la salle.
