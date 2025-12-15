@@ -7,8 +7,7 @@ utilisation d'objets, etc.).
 Les actions interagissent avec l'état du joueur, des salles et du jeu.
 """
 
-from ai_quiz import ask_question, get_ai_status
-import player
+from ai_quiz import get_question, evaluate_answer, get_ai_status
 
 # ======================
 #       DEPLACEMENT
@@ -26,7 +25,8 @@ def go(game, direction):
         return "Vous ne pouvez pas aller par là."
 
     game.player.move_to(next_room)
-    return game.player.current_room.get_long_description()
+    print(game.player.current_room.get_long_description())
+    return game.player.get_history_string()
 
 
 def back(game):
@@ -34,8 +34,10 @@ def back(game):
     if game.in_combat:
         return "❌ Vous ne pouvez pas revenir en arrière pendant un combat."
     if game.player.back():
-        return game.player.current_room.get_long_description()
+        print(game.player.current_room.get_long_description())
+        return game.player.get_history_string()
     return "Impossible de revenir en arrière."
+
 
 
 # ======================
@@ -188,8 +190,70 @@ def talk(game, name):
 #        COMBAT
 # ======================
 
+# Calcul des dégâts infligés par le joueur
+# compute_player_damage calcule les dégâts bruts AVANT défense
+def _compute_player_damage(player, enemy, multiplier):
+    base = max(1, player.atk - enemy.defense)
+    return max(1, int(round(base * multiplier)))
+
+# Attaque du joueur
+def _player_attack(game, enemy, multiplier):
+    dmg = _compute_player_damage(game.player, enemy, multiplier)
+    real = enemy.take_damage(dmg)
+    return real
+
+
+# Riposte de l'ennemi
+def _enemy_counter_attack(game, enemy):
+    return game.player.take_damage(enemy.atk)
+
+# Gestion de la défaite de l'ennemi
+def _handle_enemy_defeat(game, enemy, logs): 
+    game.in_combat = False
+    game.current_enemy = None
+
+    # Loot
+    if enemy.loot:
+        for it in enemy.loot:
+            if it.name == "Cristal de propulsion" and game.player.has_crystal:
+                continue
+            if it.name == "Cristal de propulsion" and not game.player.has_crystal:
+                game.player.has_crystal = True
+                game.player.add_item(it)
+                logs.append(f"{enemy.name} laisse tomber {it.name}. Vous l'ajoutez à votre inventaire.")
+                continue
+            game.player.current_room.add_item(it)
+
+            logs.append(f"{enemy.name} laisse tomber {it.name}.")
+
+    # Boss logic
+    if enemy.is_boss:
+        if enemy.name == "Capitaine Vorn":
+            game.player.vorn_defeated = True
+            game.player.reputation += 2
+            if game.player.merchant_sacrifice:
+                game.player.moral += 2
+                game.player.atk += 1
+
+        elif enemy.name == "Gouverneur Karn":
+            game.player.velyra_karn_defeated = True
+            game.player.reputation += 2
+            game.player.moral += 1
+
+        elif enemy.name == "Seren Taal":
+            game.player.ap_taal_dead = True
+            game.player.reputation += 3
+            game.player.moral += 2
+            
+    
+    if enemy.name == "Garde Éclaté":
+        game.player.moral += 1
+        game.player.reputation += 1
+
+# Attaque principale
+
+
 def attack(game, enemy_name):
-    """Lance un combat contre un ennemi présent dans la salle."""
     if not enemy_name:
         return "Attaquer qui ?"
 
@@ -202,49 +266,71 @@ def attack(game, enemy_name):
 
     game.in_combat = True
     game.current_enemy = enemy
+    logs = []
 
-    # Le multiplicateur dépend d'une question IA (système de quiz)
-    multiplier = ask_question(game.player)
+    # -------------------------------------------------
+    #  IA — génération UNIQUE de la question
+    # -------------------------------------------------
+    if game.current_question is None:
+        q, expected = get_question()
+        game.current_question = q
+        game.current_answer = expected
 
-    base = max(1, game.player.atk - enemy.defense)
-    dmg = max(1, int(round(base * multiplier)))
-    real = enemy.take_damage(dmg)
+    print()
+    print("🤖 Le système du Vigilant initialise le lien cognitif IA...")
+    print()
+    print(f"❓ [IA Active] Question : {game.current_question}")
 
-    logs = [f"Vous attaquez {enemy.name} et infligez {real} dégâts."]
+    # -------------------------------------------------
+    #  INPUT joueur
+    # -------------------------------------------------
+    user_input = input("> ").strip().lower()
 
-    # Ennemis vaincus
+    # -------------------------------------------------
+    #  Commandes info autorisées (SANS consommer la question)
+    # -------------------------------------------------
+    from command import Command
+    cmd = Command(user_input)
+    cmd.parse()
+
+    if cmd.verb in (
+        "statut", "status", "s",
+        "inventaire", "inventory", "i",
+        "examiner", "check", "e",
+        "utiliser", "use", "u",
+        "quit", "exit", "quitter", "q", "b", 
+    ):
+        return cmd.execute(game)
+
+    # -------------------------------------------------
+    #  Évaluation IA (CONSOMME la question)
+    # -------------------------------------------------
+    multiplier = evaluate_answer(
+        game.player,
+        user_input,
+        game.current_answer
+    )
+
+    # La question est consommée
+    game.current_question = None
+    game.current_answer = None
+
+    # -------------------------------------------------
+    #  Attaque joueur (OFFICIELLE)
+    # -------------------------------------------------
+    real = _player_attack(game, enemy, multiplier)
+    logs.append(f"Vous attaquez {enemy.name} et infligez {real} dégâts. (Votre HP : {game.player.hp})")
+
     if not enemy.is_alive():
         logs.append(f"{enemy.name} est vaincu.\n")
-        game.in_combat = False
-        game.current_enemy = None
-
-        # Loot
-        if enemy.loot:
-            for it in enemy.loot:
-                if it.name == 'Cristal de propulsion' and game.player.has_crystal:
-                    continue
-                room.add_item(it)
-                logs.append(f"{enemy.name} laisse tomber {it.name}.")
-                if it.name == "Cristal de propulsion":
-                    game.player.has_crystal = True
-
-        # Boss final du monde 1
-        if enemy.is_boss:
-            game.player.vorn_defeated = True
-            logs.append("Le Capitaine Vorn s'effondre. Les rebelles envahissent la forteresse !")
-            if game.player.merchant_sacrifice:
-                logs.append(
-                    "Dans le chaos, votre équipier sacrifié est libéré. "
-                    "Votre moral et votre force augmentent."
-                )
-                game.player.moral += 3
-                game.player.atk += 1
-
+        _handle_enemy_defeat(game, enemy, logs)
         return "\n".join(logs)
 
-    # Contre-attaque ennemie
-    dmg_received = game.player.take_damage(enemy.atk)
-    logs.append(f"{enemy.name} riposte et inflige {dmg_received} dégâts.")
+    # -------------------------------------------------
+    #  Riposte ennemie
+    # -------------------------------------------------
+    dmg_received = _enemy_counter_attack(game, enemy)
+    logs.append(f"{enemy.name} riposte et inflige {dmg_received} dégâts. (HP de l'ennemie : {enemy.hp})")
 
     if not game.player.is_alive():
         logs.append("Vous êtes mort. Game Over.")
@@ -254,69 +340,44 @@ def attack(game, enemy_name):
 
     return "\n".join(logs)
 
+
+
+
+
 # ======================
 #   Cheat provispoire
 # ======================
 def cheat(game, enemy_name):
-    """Permet de tuer instantanément un ennemi (cheat)."""
+    """Tue instantanément un ennemi (outil de debug)."""
+
     if not enemy_name:
         return "Cheat sur qui ?"
 
     room = game.player.current_room
     enemy = room.find_enemy(enemy_name)
+
     if not enemy:
         return f"Aucun ennemi nommé '{enemy_name}'."
     if not enemy.is_alive():
         return f"{enemy.name} est déjà vaincu."
 
+    logs = [f"[CHEAT] {enemy.name} est éliminé instantanément."]
+
+    # Simule un combat propre
+    game.in_combat = True
+    game.current_enemy = enemy
+
+    # Tue l’ennemi
     enemy.hp = 0
-    logs = [f"Vous utilisez le cheat pour tuer instantanément {enemy.name}."]
-    logs.append(f"{enemy.name} est vaincu.")
 
-    # Loot éventuel
-    if enemy.loot:
-        for it in enemy.loot:
-            # Cas spécifique : cristal déjà obtenu
-            if it.name == 'Cristal de propulsion' and game.player.has_crystal:
-                continue
-            logs.append(f"{enemy.name} laisse tomber {it.name}.")
-            game.player.add_item(it)
-            if it.name == "Cristal de propulsion":
-                game.player.has_crystal = True
+    # Reset combat
+    game.in_combat = False
+    game.current_enemy = None
+    game.current_question = None
+    game.current_answer = None
 
-    # Gestion des boss
-    if enemy.is_boss:
-        # Boss du monde 1 : Capitaine Vorn
-        if enemy.name == "Capitaine Vorn":
-            game.player.vorn_defeated = True  #Indique que Vorn est mort permet la transition vers le monde 2
-            logs.append("Les rebelles envahissent la forteresse !")
-            if game.player.merchant_sacrifice:
-                logs.append(
-                    "Dans le chaos, votre équipier sacrifié est libéré. "
-                    "Votre moral et votre force augmentent."
-                )
-                game.player.moral += 3
-                game.player.atk += 1
-
-            logs.append(
-                "\nLes réserves de Vorn révèlent assez de minerai pour réparer le Vigilant. "
-                "Les rebelles vous aident à préparer le départ d’Eridani Prime."
-            )
-
-
-        # Boss du monde 2 : Gouverneur Karn
-        elif enemy.name == "Gouverneur Karn":
-            game.player.velyra_karn_defeated = True
-            game.player.reputation += 3
-            
-            
-        elif enemy.name == "Seren Taal":
-            game.player.ap_taal_dead = True
-
- 
-                
-                
     return "\n".join(logs)
+
 
 # ======================
 #     INFORMATIONS
